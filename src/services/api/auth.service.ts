@@ -76,12 +76,34 @@ class AuthService {
    */
   async getMe(): Promise<{
     user: User;
-    projectId: string;
+    project: Project;
+    memberId: string;
     role: string;
     permissions: Permission[];
   }> {
-    const response = await apiClient.get('/v1/auth/me');
-    return response.data.data;
+    try {
+      const response = await apiClient.get('/v1/auth/me');
+      console.log('✅ authService.getMe() - Success:', {
+        userId: response.data?.user?.id,
+        projectId: response.data?.project?.id,
+        memberId: response.data?.memberId,
+      });
+      // Backend returns data directly, not wrapped in 'data' property
+      return {
+        user: response.data.user,
+        project: response.data.project,
+        memberId: response.data.memberId,
+        role: response.data.role,
+        permissions: response.data.permissions || [],
+      };
+    } catch (error: any) {
+      console.error('❌ authService.getMe() - Error:', {
+        status: error.status,
+        message: error.message,
+        data: error.data,
+      });
+      throw error;
+    }
   }
 
   /**

@@ -6,7 +6,6 @@
 
 import { types, flow, Instance, cast } from 'mobx-state-tree';
 import { chatService, ChatMessage as ChatMessageType } from '../services/api/chat.service';
-import { websocketService } from '../services/websocket/WebSocketService';
 
 // Message model (matches web admin)
 export const ChatMessage = types.model('ChatMessage', {
@@ -55,24 +54,11 @@ export const ConversationPreview = types.model('ConversationPreview', {
       return self.messages[self.messages.length - 1];
     },
     get customerName() {
-      // WhatsApp format: check if domain is 'whatsapp'
-      if (self.domain === 'whatsapp') {
-        // Return phone number formatted nicely
-        return `WhatsApp ${self.visitorId}`;
-      }
-      
-      // Widget format: Extract visitor name from visitorId or use first message sender
+      // Extract visitor name from visitorId or use first message sender
       if (self.messages.length > 0 && self.messages[0].senderName) {
         return self.messages[0].senderName;
       }
-      
-      // Fallback: "Website Visitor [ID]"
-      const visitorCode = self.visitorId.split('_')[1] || self.visitorId.substring(0, 6).toUpperCase();
-      return `Website Visitor ${visitorCode}`;
-    },
-    get displayTitle() {
-      // For conversation title in list
-      return `${this.customerName}`;
+      return self.visitorId.split('_')[0] || self.visitorId;
     },
   }));
 
@@ -97,16 +83,12 @@ export const ChatStore = types
     selectedChatId: types.maybeNull(types.string),
     conversationDetail: types.maybeNull(ConversationDetail),
     chatStatus: types.optional(types.enumeration(['OPEN', 'CLOSED', 'ARCHIVED']), 'OPEN'),
-    
-    // Agent status
-    currentAgentStatus: types.maybeNull(types.enumeration(['ONLINE', 'OFFLINE', 'BUSY', 'AWAY'])),
 
     // Loading states
     isLoading: types.optional(types.boolean, false),
     isDetailLoading: types.optional(types.boolean, false),
     isReplyLoading: types.optional(types.boolean, false),
     isUpdatingMode: types.optional(types.boolean, false),
-    isStatusLoading: types.optional(types.boolean, false),
 
     // UI states
     aiTypingConversationIds: types.array(types.string),
@@ -123,12 +105,7 @@ export const ChatStore = types
       return self.conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
     },
     get escalationCount() {
-      // Count conversations that require attention
       return self.conversations.filter((conv) => conv.requiresAttention === true).length;
-    },
-    get claimedChatsCount() {
-      // Count conversations assigned to current agent
-      return self.conversations.filter((conv) => conv.assignedToMemberId !== null).length;
     },
     get aiDisabledCount() {
       return self.conversations.filter((conv) => conv.mode !== 'AI_ACTIVE').length;
@@ -145,9 +122,6 @@ export const ChatStore = types
         return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       });
     },
-  }))
-  .volatile(() => ({
-    websocketUnsubscribe: null as (() => void) | null,
   }))
   .actions((self) => {
     const loadConversations = flow(function* (status?: 'OPEN' | 'CLOSED' | 'ARCHIVED') {
@@ -291,41 +265,60 @@ export const ChatStore = types
       try {
         yield chatService.closeConversation(conversationId);
         
-        // Reload conversations
+        // Reload conversations and detail
+        yield loadConversationDetail(chatId);
         yield loadConversations();
         
-        // Clear selected conversation if it was the closed one
-        if (self.selectedChatId === conversationId) {
-          self.selectedChatId = null;
-          self.conversationDetail = null;
-        }
-        
-        console.log('✅ ChatStore.closeConversation() - Success');
+        console.log('✅ ChatStore.updateConversationMode() - Success');
       } catch (error: any) {
-        self.error = error.message || 'Failed to close conversation';
-        console.error('❌ ChatStore.closeConversation() - Error:', error);
+        self.error = error.message || 'Failed to update conversation mode';
+        console.error('❌ ChatStore.updateConversationMode() - Error:', error);
+      } finally {
+        self.isUpdatingMode = false;
+      }
+    });
+
+    const claimConversation = flow(function* (conversationId: string) {
+      console.log('🔄 ChatStore.claimConversation() - conversationId:', conversationId);
+      self.isUpdatingMode = true;
+      self.error = null;
+
+      try {
+        yield chatService.claimConversation(conversationId);
+        
+        // Reload conversations and detail
+        yield loadConversationDetail(conversationId);
+        yield loadConversations();
+        
+        console.log('✅ ChatStore.claimConversation() - Success');
+      } catch (error: any) {
+        self.error = error.message || 'Failed to claim conversation';
+        console.error('❌ ChatStore.claimConversation() - Error:', error);
         throw error;
       } finally {
         self.isUpdatingMode = false;
       }
     });
 
-    const updateAgentStatus = flow(function* (status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'AWAY') {
-      console.log('🔄 ChatStore.updateAgentStatus() - status:', status);
-      self.isStatusLoading = true;
+    const releaseConversation = flow(function* (conversationId: string) {
+      console.log('🔄 ChatStore.releaseConversation() - conversationId:', conversationId);
+      self.isUpdatingMode = true;
       self.error = null;
 
       try {
-        yield chatService.updateAgentStatus(status);
-        self.currentAgentStatus = status;
+        yield chatService.releaseConversation(conversationId);
         
-        console.log('✅ ChatStore.updateAgentStatus() - Success');
+        // Reload conversations and detail
+        yield loadConversationDetail(conversationId);
+        yield loadConversations();
+        
+        console.log('✅ ChatStore.releaseConversation() - Success');
       } catch (error: any) {
-        self.error = error.message || 'Failed to update status';
-        console.error('❌ ChatStore.updateAgentStatus() - Error:', error);
+        self.error = error.message || 'Failed to release conversation';
+        console.error('❌ ChatStore.releaseConversation() - Error:', error);
         throw error;
       } finally {
-        self.isStatusLoading = false;
+        self.isUpdatingMode = false;
       }
     });
 
@@ -393,17 +386,6 @@ export const ChatStore = types
       self.error = null;
     };
 
-    const disconnectWebSocket = () => {
-      console.log('🔌 ChatStore.disconnectWebSocket()');
-      
-      if (self.websocketUnsubscribe) {
-        self.websocketUnsubscribe();
-        self.websocketUnsubscribe = null;
-      }
-      
-      websocketService.disconnect();
-    };
-
     return {
       loadConversations,
       loadConversationDetail,
@@ -411,8 +393,6 @@ export const ChatStore = types
       updateConversationMode,
       claimConversation,
       releaseConversation,
-      closeConversation,
-      updateAgentStatus,
       selectChat,
       setChatStatus,
       addAiTyping,
@@ -421,88 +401,8 @@ export const ChatStore = types
       removeVisitorTyping,
       addMessage,
       clearError,
-      disconnectWebSocket,
     };
-  })
-  .actions((self) => ({
-    // WebSocket message handler - separate action to ensure proper MST context
-    handleWebSocketUpdate(message: any) {
-      console.log('📨 WebSocket message received:', message.type);
-      
-      try {
-        switch (message.type) {
-          case 'conversation_updated':
-            if (message.newMessage && message.conversation) {
-              self.addMessage(message.conversation.id, message.newMessage);
-              self.loadConversations().catch((err: any) => console.error('Failed to reload:', err));
-            }
-            break;
-          
-          case 'conversation_mode_updated':
-            if (message.conversationId) {
-              self.loadConversations().catch((err: any) => console.error('Failed to reload:', err));
-              if (self.selectedChatId === message.conversationId) {
-                self.loadConversationDetail(message.conversationId).catch((err: any) => console.error('Failed to reload detail:', err));
-              }
-            }
-            break;
-          
-          case 'typing_start':
-            if (message.conversationId) {
-              if (message.source === 'ai') {
-                self.addAiTyping(message.conversationId);
-              } else if (message.source === 'visitor') {
-                self.addVisitorTyping(message.conversationId);
-              }
-            }
-            break;
-          
-          case 'typing_stop':
-            if (message.conversationId) {
-              if (message.source === 'ai') {
-                self.removeAiTyping(message.conversationId);
-              } else if (message.source === 'visitor') {
-                self.removeVisitorTyping(message.conversationId);
-              }
-            }
-            break;
-          
-          case 'escalation_request':
-            if (message.conversationId) {
-              self.loadConversations().catch((err: any) => console.error('Failed to reload:', err));
-            }
-            break;
-          
-          default:
-            console.log('Unknown WebSocket message type:', (message as any).type);
-        }
-      } catch (error) {
-        console.error('Error handling WebSocket message:', error);
-      }
-    },
-  }))
-  .actions((self) => ({
-    // WebSocket connection - uses handleWebSocketUpdate action
-    setupWebSocketConnection(apiBaseUrl: string, token: string) {
-      console.log('🔌 Setting up WebSocket connection');
-      
-      // Disconnect any existing connection
-      if (self.websocketUnsubscribe) {
-        self.websocketUnsubscribe();
-        self.websocketUnsubscribe = null;
-      }
-      
-      // Connect to WebSocket
-      websocketService.connect(apiBaseUrl, token);
-      
-      // Subscribe with the bound action
-      const unsubscribe = websocketService.subscribe((message) => {
-        self.handleWebSocketUpdate(message);
-      });
-      
-      self.websocketUnsubscribe = unsubscribe;
-    },
-  }));
+  });
 
 export type IChatStore = Instance<typeof ChatStore>;
 export default ChatStore;

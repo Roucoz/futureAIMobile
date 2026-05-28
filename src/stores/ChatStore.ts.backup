@@ -1,0 +1,269 @@
+/**
+ * ChatStore - MobX State Tree
+ * Manages conversations and messages
+ */
+
+import { types, flow, Instance } from 'mobx-state-tree';
+import { chatService } from '../services/api/chat.service';
+
+// Message model (matches backend)
+export const MessageModel = types.model('Message', {
+  id: types.identifier,
+  role: types.enumeration(['user', 'assistant', 'system']),
+  senderType: types.enumeration(['visitor', 'bot', 'agent']),
+  senderName: types.maybeNull(types.string),
+  content: types.string,
+  createdAt: types.string,
+  agentMemberId: types.maybeNull(types.string),
+  // Media attachment fields
+  attachmentType: types.maybeNull(types.string),
+  attachmentUrl: types.maybeNull(types.string),
+  attachmentMimeType: types.maybeNull(types.string),
+  attachmentSize: types.maybeNull(types.number),
+  transcription: types.maybeNull(types.string),
+});
+
+// Assigned agent model
+export const AssignedAgentModel = types.model('AssignedAgent', {
+  id: types.string,
+  name: types.string,
+});
+
+// Conversation model (matches backend)
+export const ConversationModel = types.model('Conversation', {
+  id: types.identifier,
+  visitorId: types.string,
+  domain: types.string,
+  mode: types.enumeration(['AI_ACTIVE', 'HUMAN_TAKEOVER', 'AI_PAUSED']),
+  status: types.optional(types.enumeration(['OPEN', 'CLOSED', 'ARCHIVED']), 'OPEN'),
+  unreadCount: types.number,
+  assignedToMemberId: types.maybeNull(types.string),
+  assignedToMember: types.maybeNull(AssignedAgentModel),
+  createdAt: types.string,
+  updatedAt: types.string,
+  messages: types.optional(types.array(MessageModel), []),
+})
+  .views((self) => ({
+    get lastMessage() {
+      if (self.messages.length === 0) return null;
+      return self.messages[self.messages.length - 1];
+    },
+    get customerName() {
+      // Extract visitor name or use visitorId
+      return self.visitorId.split('_')[0] || self.visitorId;
+    },
+  }));
+
+// ChatStore
+export const ChatStore = types
+  .model('ChatStore', {
+    conversations: types.array(ConversationModel),
+    selectedConversationId: types.maybeNull(types.string),
+    currentFilter: types.optional(types.enumeration(['OPEN', 'CLOSED', 'ARCHIVED']), 'OPEN'),
+    loading: types.optional(types.boolean, false),
+    detailLoading: types.optional(types.boolean, false),
+    sendingMessage: types.optional(types.boolean, false),
+    error: types.maybeNull(types.string),
+  })
+  .views((self) => ({
+    get selectedConversation() {
+      if (!self.selectedConversationId) return null;
+      return self.conversations.find((c) => c.id === self.selectedConversationId);
+    },
+    get totalUnreadCount() {
+      return self.conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
+    },
+    get sortedConversations() {
+      // Sort by most recent first
+      return self.conversations.slice().sort((a, b) => {
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+    },
+  }))
+  .actions((self) => ({
+    /**
+     * Load all conversations
+     */
+    loadConversations: flow(function* (status?: 'OPEN' | 'CLOSED' | 'ARCHIVED') {
+      self.loading = true;
+      self.error = null;
+
+      try {
+        const filterStatus = status || self.currentFilter;
+        const data = yield chatService.getConversations(filterStatus);
+        self.conversations.replace(data);
+      } catch (error: any) {
+        self.error = error.message || 'Failed to load conversations';
+        console.error('❌ ChatStore.loadConversations() - Error:', error);
+      } finally {
+        self.loading = false;
+      }
+    }),
+
+    /**
+     * Load conversation detail with all messages
+     */
+    loadConversationDetail: flow(function* (chatId: string) {
+      self.detailLoading = true;
+      self.error = null;
+
+      try {
+        const conversation = yield chatService.getConversationById(chatId);
+        
+        // Update conversation in list or add if not exists
+        const index = self.conversations.findIndex((c) => c.id === chatId);
+        if (index >= 0) {
+          self.conversations[index] = conversation;
+        } else {
+          self.conversations.push(conversation);
+        }
+        
+        // Reset unread count
+        const conv = self.conversations.find((c) => c.id === chatId);
+        if (conv) {
+          conv.unreadCount = 0;
+        }
+        
+       } catch (error: any) {
+        self.error = error.message || 'Failed to load conversation';
+        console.error('❌ ChatStore.loadConversationDetail() - Error:', error);
+      } finally {
+        self.detailLoading = false;
+      }
+    }),
+
+    /**
+     * Send a reply message
+     */
+    sendMessage: flow(function* (conversationId: string, content: string, agentMemberId: string) {
+      self.sendingMessage = true;
+      self.error = null;
+
+      try {
+        const newMessage = yield chatService.sendReply(conversationId, content, agentMemberId);
+        
+        // Add message to conversation's messages array
+        const conversation = self.conversations.find((c) => c.id === conversationId);
+        if (conversation) {
+          conversation.lastMessage = text;
+          conversation.lastMessageAt = newMessage.timestamp;
+        }
+
+        return newMessage;
+      } catch (error: any) {
+        self.error = error.message || 'Failed to send message';
+        console.error('Failed to send message:', error);
+        throw error;
+      }
+    }),
+
+    /**
+     * Add new message (from WebSocket)
+     */
+    addMessage(message: any) {
+      const messages = self.messages.get(message.conversationId) || [];
+      self.messages.set(message.conversationId, [...messages, message]);
+
+      // Update conversation
+      const conversation = self.conversations.find((c) => c.id === message.conversationId);
+      if (conversation) {
+        conversation.lastMessage = message.text;
+        conversation.lastMessageAt = message.timestamp;
+        
+        // Increment unread count if not currently viewing this conversation
+        if (self.selectedConversationId !== message.conversationId) {
+          conversation.unreadCount += 1;
+        }
+      }
+    },
+
+    /**
+     * Mark conversation as read
+     */
+    markAsRead: flow(function* (conversationId: string) {
+      try {
+        yield chatService.markAsRead(conversationId);
+        
+        const conversation = self.conversations.find((c) => c.id === conversationId);
+        if (conversation) {
+          conversation.unreadCount = 0;
+        }
+      } catch (error) {
+        console.error('Failed to mark as read:', error);
+      }
+    }),
+
+    /**
+     * Update conversation status
+     */
+    updateConversationStatus: flow(function* (conversationId: string, status: string) {
+      try {
+        yield chatService.updateConversationStatus(conversationId, status);
+        
+        const conversation = self.conversations.find((c) => c.id === conversationId);
+        if (conversation) {
+          conversation.status = status as any;
+        }
+      } catch (error: any) {
+        self.error = error.message || 'Failed to update status';
+        throw error;
+      }
+    }),
+
+    /**
+     * Set selected conversation
+     */
+    selectConversation(conversationId: string | null) {
+      self.selectedConversationId = conversationId;
+      
+      if (conversationId) {
+        // Mark as read when opening
+        this.markAsRead(conversationId);
+      }
+    },
+
+    /**
+     * Clear error
+     */
+    clearError() {
+      self.error = null;
+    },
+  }))
+  .views((self) => ({
+    /**
+     * Get messages for selected conversation
+     */
+    get selectedConversationMessages() {
+      if (!self.selectedConversationId) return [];
+      return self.messages.get(self.selectedConversationId) || [];
+    },
+
+    /**
+     * Get selected conversation
+     */
+    get selectedConversation() {
+      if (!self.selectedConversationId) return null;
+      return self.conversations.find((c) => c.id === self.selectedConversationId);
+    },
+
+    /**
+     * Get total unread count
+     */
+    get totalUnreadCount() {
+      return self.conversations.reduce((sum, c) => sum + c.unreadCount, 0);
+    },
+
+    /**
+     * Get conversations sorted by last message time
+     */
+    get sortedConversations() {
+      return self.conversations.slice().sort((a, b) => {
+        const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+        const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+        return timeB - timeA;
+      });
+    },
+  }));
+
+export type IChatStore = Instance<typeof ChatStore>;
+export default ChatStore;

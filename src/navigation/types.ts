@@ -14,8 +14,10 @@ export type AuthStackParamList = {
 
 // Chat Stack Params
 export type ChatStackParamList = {
+  Dashboard: undefined;
   ConversationList: undefined;
   ChatDetail: { conversationId: string };
+  CreateTicket: { conversationId: string };
 };
 
 // App Navigator Params (Bottom Tabs)

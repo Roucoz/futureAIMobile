@@ -3,8 +3,8 @@
  * Manages authentication state
  */
 
-import { types, flow, Instance } from 'mobx-state-tree';
-import { authService, User as AuthUser, Permission } from '../services/api/auth.service';
+import { types, flow, Instance, cast } from 'mobx-state-tree';
+import { authService } from '../services/api/auth.service';
 import { secureStorage } from '../services/storage/SecureStorageService';
 
 // Permission model
@@ -35,6 +35,7 @@ export const AuthStore = types
     user: types.maybeNull(UserModel),
     permissions: types.array(PermissionModel),
     token: types.maybeNull(types.string),
+    memberId: types.maybeNull(types.string), // ProjectMember.id - used for sending messages
     isAuthenticated: types.optional(types.boolean, false),
     loading: types.optional(types.boolean, false),
     error: types.maybeNull(types.string),
@@ -62,7 +63,7 @@ export const AuthStore = types
           self.token = response.token;
           
           // Map user data to match model
-          self.user = {
+          self.user = cast({
             id: response.user.id,
             email: response.user.email,
             firstName: response.user.firstName,
@@ -70,15 +71,17 @@ export const AuthStore = types
             projectId: response.project.id,
             role: response.role,
             twoFactorEnabled: response.user.twoFactorEnabled,
-          };
+          });
           
-          self.permissions = response.permissions || [];
+          self.memberId = response.memberId;
+          self.permissions = cast(response.permissions || []);
           self.isAuthenticated = true;
         }
 
         self.loading = false;
         return { success: true };
       } catch (error: any) {
+        console.error('❌ AuthStore.login() - ERROR:', error);
         self.error = error.message || 'Login failed';
         self.loading = false;
         throw error;
@@ -100,7 +103,7 @@ export const AuthStore = types
           self.token = response.token;
           
           // Map user data to match model
-          self.user = {
+          self.user = cast({
             id: response.user.id,
             email: response.user.email,
             firstName: response.user.firstName,
@@ -108,9 +111,10 @@ export const AuthStore = types
             projectId: response.project.id,
             role: response.role,
             twoFactorEnabled: response.user.twoFactorEnabled,
-          };
+          });
           
-          self.permissions = response.permissions || [];
+          self.memberId = response.memberId;
+          self.permissions = cast(response.permissions || []);
           self.isAuthenticated = true;
         }
 
@@ -144,25 +148,26 @@ export const AuthStore = types
           const response = yield authService.getMe();
           
           // Map user data to match model
-          self.user = {
+          self.user = cast({
             id: response.user.id,
             email: response.user.email,
             firstName: response.user.firstName,
             lastName: response.user.lastName,
-            projectId: response.projectId,
+            projectId: response.project.id,
             role: response.role,
             twoFactorEnabled: response.user.twoFactorEnabled,
-          };
+          });
           
-          self.permissions = response.permissions || [];
+          self.memberId = response.memberId;
+          self.permissions = cast(response.permissions || []);
           self.isAuthenticated = true;
-        } catch (error) {
-          // Token invalid, clear it
-          console.log('Token validation failed, logging out');
+        } catch {
           yield secureStorage.removeToken();
           self.token = null;
           self.isAuthenticated = false;
         }
+      } catch (error: any) {
+        console.error('❌ AuthStore.initialize() - ERROR:', error);
       } finally {
         self.loading = false;
       }
@@ -179,6 +184,7 @@ export const AuthStore = types
         // Reset state
         self.user = null;
         self.token = null;
+        self.memberId = null;
         self.permissions.clear();
         self.isAuthenticated = false;
         self.error = null;

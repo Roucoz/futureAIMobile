@@ -1,129 +1,160 @@
 /**
  * Chat Service
  * API calls for conversations and messages
+ * Matches web admin patterns: /v1/admin/chats endpoints
  */
 
 import apiClient from './client';
 
-export interface Conversation {
+export interface ConversationPreview {
   id: string;
-  customerId: string;
-  customerName: string;
-  customerPhone?: string;
-  customerEmail?: string;
-  status: 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
-  lastMessage?: string;
-  lastMessageAt?: string;
+  visitorId: string;
+  domain: string;
+  mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED';
+  status: 'OPEN' | 'CLOSED' | 'ARCHIVED';
   unreadCount: number;
-  assignedToId?: string;
-  assignedToName?: string;
-  channel: 'WIDGET' | 'WHATSAPP' | 'EMAIL';
+  closedAt: string | null;
+  aiOfferedHumanAgent: boolean;
+  requiresAttention: boolean;
+  suggestedAgentName: string | null;
+  assignedToMemberId: string | null;
+  assignedToMember: { id: string; name: string } | null;
+  createdAt: string;
+  updatedAt: string;
+  messages: ChatMessage[];
 }
 
-export interface Message {
+export interface ConversationDetail {
   id: string;
-  conversationId: string;
-  text?: string;
-  sender: 'CUSTOMER' | 'AGENT' | 'AI';
-  timestamp: string;
-  status: 'SENDING' | 'SENT' | 'DELIVERED' | 'FAILED';
-  mediaUrl?: string;
-  mediaType?: string;
-  isRead: boolean;
+  visitorId: string;
+  domain: string;
+  mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED';
+  unreadCount: number;
+  assignedToMemberId: string | null;
+  assignedToMember: { id: string; name: string } | null;
+  createdAt: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  senderType: 'visitor' | 'bot' | 'agent';
+  senderName: string | null;
+  content: string;
+  createdAt: string;
+  agentMemberId: string | null;
+  // Attachment fields for media messages
+  attachmentType: string | null;
+  attachmentUrl: string | null;
+  attachmentMimeType: string | null;
+  attachmentSize: number | null;
+  transcription: string | null;
 }
 
 class ChatService {
   /**
-   * Get all conversations
+   * Get all conversations (matches web admin)
    */
-  async getConversations(): Promise<Conversation[]> {
-    const response = await apiClient.get('/v1/admin/chats', {
-      params: { status: 'OPEN' },
+  async getConversations(status: 'OPEN' | 'CLOSED' | 'ARCHIVED' = 'OPEN'): Promise<ConversationPreview[]> {
+    console.log('🔄 chatService.getConversations() - status:', status);
+    const response = await apiClient.get(`/v1/admin/chats?status=${status}`);
+    console.log('✅ chatService.getConversations() - Count:', response.data.conversations?.length || 0);
+    return response.data.conversations || [];
+  }
+
+  /**
+   * Get conversation detail with all messages
+   */
+  async getConversationById(chatId: string): Promise<ConversationDetail> {
+    console.log('🔄 chatService.getConversationById() - chatId:', chatId);
+    const response = await apiClient.get(`/v1/admin/chats/${chatId}`);
+    console.log('✅ chatService.getConversationById() - Messages:', response.data.conversation?.messages?.length || 0);
+    return response.data.conversation;
+  }
+
+  /**
+   * Send a reply (matches web admin)
+   */
+  async sendReply(chatId: string, content: string, agentId: string): Promise<ChatMessage> {
+    console.log('📤 chatService.sendReply() - chatId:', chatId, 'agentId:', agentId);
+    const response = await apiClient.post(`/v1/admin/chats/${chatId}/reply`, {
+      content,
+      agentId,
     });
-    const conversations = response.data.conversations || [];
-    
-    // Map backend format to our Conversation interface
-    return conversations.map((conv: any) => {
-      const lastMsg = conv.messages?.[0];
-      
-      return {
-        id: conv.id,
-        customerId: conv.visitorId,
-        customerName: lastMsg?.senderName || conv.visitorId || 'Unknown',
-        customerPhone: null,
-        customerEmail: null,
-        status: conv.status === 'CLOSED' ? 'CLOSED' : conv.status === 'ARCHIVED' ? 'CLOSED' : 'OPEN',
-        lastMessage: lastMsg?.content || null,
-        lastMessageAt: lastMsg?.createdAt || conv.updatedAt,
-        unreadCount: conv.unreadCount || 0,
-        assignedToId: conv.assignedToMember?.id || null,
-        assignedToName: conv.assignedToMember?.name || null,
-        channel: 'WIDGET', // Backend doesn't expose channel, default to WIDGET
-      };
-    });
+    console.log('✅ chatService.sendReply() - Success');
+    return response.data.message;
   }
 
   /**
-   * Get messages for a conversation
+   * Update conversation mode (AI_ACTIVE, HUMAN_TAKEOVER, AI_PAUSED)
    */
-  async getMessages(conversationId: string): Promise<Message[]> {
-    const response = await apiClient.get(`/v1/admin/chats/${conversationId}`);
-    const conversation = response.data;
-    
-    // Map backend message format to our format
-    return (conversation.messages || []).map((msg: any) => ({
-      id: msg.id,
-      conversationId: conversationId,
-      text: msg.content,
-      sender: msg.role === 'user' ? 'CUSTOMER' : msg.senderType === 'AI' ? 'AI' : 'AGENT',
-      timestamp: msg.createdAt,
-      status: 'SENT',
-      mediaUrl: msg.attachmentUrl,
-      mediaType: msg.attachmentType,
-      isRead: true,
-    }));
+  async updateMode(chatId: string, mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED'): Promise<void> {
+    console.log('🔄 chatService.updateMode() - chatId:', chatId, 'mode:', mode);
+    await apiClient.patch(`/v1/admin/chats/${chatId}/mode`, { mode });
+    console.log('✅ chatService.updateMode() - Success');
   }
 
   /**
-   * Send a message
+   * Claim conversation (assign to current agent)
    */
-  async sendMessage(conversationId: string, text: string): Promise<Message> {
-    const response = await apiClient.post(
-      `/v1/admin/chats/${conversationId}/reply`,
-      { content: text }
-    );
-    const msg = response.data.message || response.data;
-    
-    return {
-      id: msg.id,
-      conversationId: conversationId,
-      text: msg.content,
-      sender: 'AGENT',
-      timestamp: msg.createdAt || new Date().toISOString(),
-      status: 'SENT',
-      isRead: true,
-    };
+  async claimConversation(conversationId: string): Promise<void> {
+    console.log('🔄 chatService.claimConversation() - conversationId:', conversationId);
+    await apiClient.post('/v1/agent/conversations/claim', { conversationId });
+    console.log('✅ chatService.claimConversation() - Success');
   }
 
   /**
-   * Mark conversation as read
+   * Release conversation (unassign from current agent)
    */
-  async markAsRead(conversationId: string): Promise<void> {
-    // Mark as read happens automatically when fetching messages in getChatById
-    // No separate endpoint needed
+  async releaseConversation(conversationId: string): Promise<void> {
+    console.log('🔄 chatService.releaseConversation() - conversationId:', conversationId);
+    await apiClient.post('/v1/agent/conversations/release', { conversationId });
+    console.log('✅ chatService.releaseConversation() - Success');
   }
 
   /**
-   * Update conversation status
+   * Update agent status
    */
-  async updateConversationStatus(
-    conversationId: string,
-    status: 'OPEN' | 'IN_PROGRESS' | 'CLOSED'
-  ): Promise<void> {
-    if (status === 'CLOSED') {
-      await apiClient.post(`/v1/admin/chats/${conversationId}/close`);
-    }
-    // Backend doesn't have separate status update for OPEN/IN_PROGRESS
+  async updateAgentStatus(status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'AWAY'): Promise<void> {
+    console.log('🔄 chatService.updateAgentStatus() - status:', status);
+    await apiClient.put('/v1/agent/status', { status });
+    console.log('✅ chatService.updateAgentStatus() - Success');
+  }
+
+  /**
+   * Get all agents with status
+   */
+  async getAgentsWithStatus(): Promise<{ agents: any[]; currentStatus: string }> {
+    console.log('🔄 chatService.getAgentsWithStatus()');
+    const response = await apiClient.get('/v1/agent/all');
+    console.log('✅ chatService.getAgentsWithStatus() - Count:', response.data.agents?.length || 0);
+    return response.data;
+  }
+
+  /**
+   * Close conversation (requires chats:close permission)
+   */
+  async closeConversation(conversationId: string): Promise<void> {
+    console.log('🔄 chatService.closeConversation() - conversationId:', conversationId);
+    await apiClient.post(`/v1/admin/chats/${conversationId}/close`);
+    console.log('✅ chatService.closeConversation() - Success');
+  }
+
+  /**
+   * Get dashboard statistics
+   */
+  async getDashboardStats(): Promise<{
+    openChats: number;
+    claimedChats: number;
+    requiresAttention: number;
+    currentStatus: string;
+  }> {
+    console.log('🔄 chatService.getDashboardStats()');
+    const response = await apiClient.get('/v1/agent/dashboard-stats');
+    console.log('✅ chatService.getDashboardStats() - Success');
+    return response.data;
   }
 }
 

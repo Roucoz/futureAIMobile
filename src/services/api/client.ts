@@ -23,11 +23,13 @@ apiClient.interceptors.request.use(
     const token = await secureStorage.getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      console.log('🔓 API Request:', config.method?.toUpperCase(), config.url, '(no token)');
     }
     return config;
   },
   (error) => {
-    console.error('Request error:', error);
+    console.error('❌ Request error:', error);
     return Promise.reject(error);
   }
 );

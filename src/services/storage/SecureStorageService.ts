@@ -18,7 +18,7 @@ class SecureStorageService {
         service: SERVICE_NAME,
       });
     } catch (error) {
-      console.error('Failed to store token:', error);
+      console.error('❌ SecureStorage.setToken() - Failed to store token:', error);
       throw error;
     }
   }
@@ -31,9 +31,14 @@ class SecureStorageService {
       const credentials = await Keychain.getGenericPassword({
         service: SERVICE_NAME,
       });
-      return credentials ? credentials.password : null;
+      
+      if (credentials) {
+        return credentials.password;
+      } else {
+        return null;
+      }
     } catch (error) {
-      console.error('Failed to retrieve token:', error);
+      console.error('❌ SecureStorage.getToken() - Failed to retrieve token:', error);
       return null;
     }
   }
@@ -47,7 +52,7 @@ class SecureStorageService {
         service: SERVICE_NAME,
       });
     } catch (error) {
-      console.error('Failed to remove token:', error);
+      console.error('❌ SecureStorage.removeToken() - Failed to remove token:', error);
       throw error;
     }
   }
