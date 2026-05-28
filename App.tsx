@@ -1,5 +1,5 @@
 /**
- * FutureAI Mobile App
+ * Tuxon Mobile App
  * React Native mobile application for customer support management
  */
 
