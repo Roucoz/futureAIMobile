@@ -5,20 +5,47 @@
 
 import apiClient from './client';
 
+export interface Service {
+  id: string;
+  name: string;
+  category?: string | null;
+  price?: number | null;
+  durationMinutes: number;
+}
+
 export interface Appointment {
   id: string;
   customerName: string;
-  customerEmail: string;
-  customerPhone: string;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
   appointmentDate: string;
+  durationMinutes: number;
   status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW';
-  serviceName: string;
+  customerNotes?: string | null;
+  internalNotes?: string | null;
   serviceId: string;
-  category: string | null;
-  price: number | null;
-  notes: string | null;
+  service: Service;
   createdAt: string;
   updatedAt: string;
+  canceledAt?: string | null;
+}
+
+export interface CreateAppointmentDto {
+  serviceId: string;
+  customerName: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  appointmentDate: string;
+  customerNotes?: string;
+}
+
+export interface UpdateAppointmentDto {
+  status?: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW';
+  appointmentDate?: string;
+  internalNotes?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
 }
 
 class AppointmentsService {
@@ -77,6 +104,36 @@ class AppointmentsService {
     });
     console.log('✅ appointmentsService.rescheduleAppointment() - Success');
     return response.data.appointment;
+  }
+
+  /**
+   * Create new appointment
+   */
+  async createAppointment(data: CreateAppointmentDto): Promise<Appointment> {
+    console.log('📤 appointmentsService.createAppointment() - data:', data);
+    const response = await apiClient.post('/v1/admin/appointments', data);
+    console.log('✅ appointmentsService.createAppointment() - Success');
+    return response.data.appointment;
+  }
+
+  /**
+   * Update appointment
+   */
+  async updateAppointment(appointmentId: string, data: UpdateAppointmentDto): Promise<Appointment> {
+    console.log('📤 appointmentsService.updateAppointment() - appointmentId:', appointmentId);
+    const response = await apiClient.patch(`/v1/admin/appointments/${appointmentId}`, data);
+    console.log('✅ appointmentsService.updateAppointment() - Success');
+    return response.data.appointment;
+  }
+
+  /**
+   * Get all services
+   */
+  async getServices(): Promise<Service[]> {
+    console.log('🔄 appointmentsService.getServices()');
+    const response = await apiClient.get('/v1/admin/services');
+    console.log('✅ appointmentsService.getServices() - Count:', response.data.services?.length || 0);
+    return response.data.services || [];
   }
 }
 

@@ -46,4 +46,12 @@ export const useChat = () => {
   return chat;
 };
 
+/**
+ * Hook to access appointment store
+ */
+export const useAppointment = () => {
+  const { appointment } = useStore();
+  return appointment;
+};
+
 export default StoreProvider;

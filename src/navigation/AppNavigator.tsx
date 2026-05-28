@@ -9,6 +9,7 @@ import { AppTabParamList } from './types';
 
 // Import navigators and screens
 import ChatNavigator from './ChatNavigator';
+import AppointmentsScreen from '../screens/appointments/AppointmentsScreen';
 
 // Placeholder screens
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
@@ -56,21 +57,53 @@ const AppNavigator = () => {
         headerShown: false,
         tabBarActiveTintColor: '#1890ff',
         tabBarInactiveTintColor: '#888',
+        tabBarLabelStyle: {
+          fontSize: 12,
+        },
+        tabBarIconStyle: {
+          fontSize: 24,
+        },
       }}>
       <Tab.Screen
         name="ChatStack"
         component={ChatNavigator}
-        options={{ title: 'Chat' }}
+        options={{ 
+          title: 'Chat',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 24, color }}>💬</Text>
+          ),
+        }}
       />
       <Tab.Screen
         name="Appointments"
-        component={() => <PlaceholderScreen title="Appointments" />}
+        component={AppointmentsScreen}
+        options={{ 
+          title: 'Appointments',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 24, color }}>📅</Text>
+          ),
+        }}
       />
       <Tab.Screen
         name="Notifications"
         component={() => <PlaceholderScreen title="Notifications" />}
+        options={{ 
+          title: 'Notifications',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 24, color }}>🔔</Text>
+          ),
+        }}
       />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen 
+        name="Profile" 
+        component={ProfileScreen}
+        options={{ 
+          title: 'Profile',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 24, color }}>👤</Text>
+          ),
+        }}
+      />
     </Tab.Navigator>
   );
 };
