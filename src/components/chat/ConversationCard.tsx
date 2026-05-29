@@ -12,9 +12,16 @@ import { useAuth, useChat } from '../../stores';
 interface ConversationCardProps {
   conversation: {
     id: string;
+    visitorId: string;
+    domain: string;
     customerName: string; // Computed property
     displayTitle: string; // Computed property
-    lastMessage: { content: string; attachmentType: string | null } | null;
+    lastMessage: { 
+      content: string; 
+      attachmentType: string | null;
+      senderType: 'visitor' | 'bot' | 'agent';
+      senderName: string | null;
+    } | null;
     updatedAt: string;
     unreadCount: number;
     status: 'OPEN' | 'CLOSED' | 'ARCHIVED';
@@ -101,12 +108,35 @@ const ConversationCard: React.FC<ConversationCardProps> = observer(({ conversati
 
   const isClaimedByMe = conversation.assignedToMemberId === authStore.memberId;
 
+  // Get channel name display
+  const getChannelDisplay = () => {
+    if (conversation.domain === 'whatsapp') {
+      return `WhatsApp ${conversation.visitorId}`;
+    }
+    const visitorCode = conversation.visitorId.split('_')[1] || conversation.visitorId.substring(0, 6).toUpperCase();
+    return `Website Visitor ${visitorCode}`;
+  };
+
+  // Get last message sender name
+  const getLastMessageSender = () => {
+    const lastMsg = conversation.lastMessage;
+    if (!lastMsg) return '';
+    
+    if (lastMsg.senderType === 'visitor') {
+      return conversation.domain === 'whatsapp' ? conversation.visitorId : (lastMsg.senderName || 'Visitor');
+    } else if (lastMsg.senderType === 'agent') {
+      return lastMsg.senderName || 'Agent';
+    } else {
+      return 'AI Bot';
+    }
+  };
+
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} testID="conversation-card">
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <Text style={styles.customerName} numberOfLines={1}>
-            {conversation.displayTitle}
+          <Text style={styles.chatName} numberOfLines={1}>
+            {getChannelDisplay()}
           </Text>
           {conversation.requiresAttention && (
             <View style={styles.attentionBadge}>
@@ -120,11 +150,15 @@ const ConversationCard: React.FC<ConversationCardProps> = observer(({ conversati
         <Text style={styles.time}>{formatTime(conversation.updatedAt)}</Text>
       </View>
 
-      <View style={styles.content}>
-        <Text style={styles.modeIcon}>{getModeIcon(conversation.mode)}</Text>
-        <Text style={styles.lastMessage} numberOfLines={2}>
+      <View style={styles.senderRow}>
+        <Text style={styles.senderName}>{getLastMessageSender()}: </Text>
+        <Text style={styles.lastMessage} numberOfLines={1}>
           {formatLastMessage()}
         </Text>
+      </View>
+
+      <View style={styles.content}>
+        <Text style={styles.modeIcon}>{getModeIcon(conversation.mode)}</Text>
       </View>
 
       {conversation.assignedToMemberId && (
@@ -204,12 +238,22 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
-  customerName: {
+  chatName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
     marginRight: 8,
     flex: 1,
+  },
+  senderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  senderName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1890ff',
   },
   attentionBadge: {
     marginRight: 4,

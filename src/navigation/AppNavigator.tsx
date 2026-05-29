@@ -9,12 +9,13 @@ import { AppTabParamList } from './types';
 
 // Import navigators and screens
 import ChatNavigator from './ChatNavigator';
+import ContactsNavigator from './ContactsNavigator';
+import DashboardScreen from '../screens/dashboard/DashboardScreen';
 import AppointmentsScreen from '../screens/appointments/AppointmentsScreen';
+import ProfileScreen from '../screens/profile/ProfileScreen';
 
 // Placeholder screens
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { observer } from 'mobx-react-lite';
-import { useAuth } from '../stores';
+import { View, Text, StyleSheet } from 'react-native';
 
 // Temporary placeholder screen
 const PlaceholderScreen = ({ title }: { title: string }) => (
@@ -24,35 +25,12 @@ const PlaceholderScreen = ({ title }: { title: string }) => (
   </View>
 );
 
-// Profile screen with logout
-const ProfileScreen = observer(() => {
-  const authStore = useAuth();
-
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Profile</Text>
-      {authStore.user && (
-        <View style={styles.userInfo}>
-          <Text style={styles.label}>Name:</Text>
-          <Text style={styles.value}>{authStore.user.fullName}</Text>
-          <Text style={styles.label}>Email:</Text>
-          <Text style={styles.value}>{authStore.user.email}</Text>
-          <Text style={styles.label}>Role:</Text>
-          <Text style={styles.value}>{authStore.user.role}</Text>
-        </View>
-      )}
-      <TouchableOpacity style={styles.logoutButton} onPress={() => authStore.logout()}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
-    </View>
-  );
-});
-
 const Tab = createBottomTabNavigator<AppTabParamList>();
 
 const AppNavigator = () => {
   return (
     <Tab.Navigator
+      initialRouteName="Dashboard"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#1890ff',
@@ -65,10 +43,20 @@ const AppNavigator = () => {
         },
       }}>
       <Tab.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+        options={{ 
+          title: 'Dashboard',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 24, color }}>📊</Text>
+          ),
+        }}
+      />
+      <Tab.Screen
         name="ChatStack"
         component={ChatNavigator}
         options={{ 
-          title: 'Chat',
+          title: 'Chats',
           tabBarIcon: ({ color }) => (
             <Text style={{ fontSize: 24, color }}>💬</Text>
           ),
@@ -85,12 +73,12 @@ const AppNavigator = () => {
         }}
       />
       <Tab.Screen
-        name="Notifications"
-        component={() => <PlaceholderScreen title="Notifications" />}
+        name="ContactsStack"
+        component={ContactsNavigator}
         options={{ 
-          title: 'Notifications',
+          title: 'Contacts',
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 24, color }}>🔔</Text>
+            <Text style={{ fontSize: 24, color }}>👥</Text>
           ),
         }}
       />
@@ -125,34 +113,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     fontStyle: 'italic',
-  },
-  userInfo: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 8,
-    width: '100%',
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 10,
-  },
-  value: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 5,
-  },
-  logoutButton: {
-    backgroundColor: '#f5222d',
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  logoutText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
 

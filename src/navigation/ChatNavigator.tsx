@@ -8,7 +8,6 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { ChatStackParamList } from './types';
 
 // Import screens
-import DashboardScreen from '../screens/dashboard/DashboardScreen';
 import ConversationListScreen from '../screens/chat/ConversationListScreen';
 import ChatDetailScreen from '../screens/chat/ChatDetailScreen';
 import CreateTicketScreen from '../screens/ticket/CreateTicketScreen';
@@ -17,21 +16,19 @@ const Stack = createStackNavigator<ChatStackParamList>();
 
 const ChatNavigator = () => {
   return (
-    <Stack.Navigator>
-      <Stack.Screen
-        name="Dashboard"
-        component={DashboardScreen}
-        options={{ headerTitle: 'Dashboard' }}
-      />
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}>
       <Stack.Screen
         name="ConversationList"
         component={ConversationListScreen}
-        options={{ headerTitle: 'Conversations' }}
       />
       <Stack.Screen
         name="ChatDetail"
         component={ChatDetailScreen}
         options={{
+          headerShown: true,
           headerTitle: 'Chat',
           headerBackTitle: 'Back',
         }}
@@ -40,6 +37,7 @@ const ChatNavigator = () => {
         name="CreateTicket"
         component={CreateTicketScreen}
         options={{
+          headerShown: true,
           headerTitle: 'Create Ticket',
           headerBackTitle: 'Back',
         }}

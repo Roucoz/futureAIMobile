@@ -53,25 +53,44 @@ export const AppointmentStore = types
     loading: types.optional(types.boolean, false),
     error: types.maybeNull(types.string),
     selectedStatus: types.maybeNull(types.string), // Filter by status
+    dateRangeFrom: types.maybeNull(types.string), // Date range filter start
+    dateRangeTo: types.maybeNull(types.string), // Date range filter end
   })
   .views((self) => ({
     /**
-     * Get filtered appointments based on selected status
+     * Get filtered appointments based on selected status and date range
      */
     get filteredAppointments() {
-      if (!self.selectedStatus || self.selectedStatus === 'ALL') {
-        return self.appointments;
+      let filtered = self.appointments.slice();
+
+      // Filter by status
+      if (self.selectedStatus && self.selectedStatus !== 'ALL') {
+        filtered = filtered.filter((apt) => apt.status === self.selectedStatus);
       }
-      return self.appointments.filter((apt) => apt.status === self.selectedStatus);
+
+      // Filter by date range
+      if (self.dateRangeFrom || self.dateRangeTo) {
+        filtered = filtered.filter((apt) => {
+          const aptDate = new Date(apt.appointmentDate);
+          const fromDate = self.dateRangeFrom ? new Date(self.dateRangeFrom) : null;
+          const toDate = self.dateRangeTo ? new Date(self.dateRangeTo) : null;
+
+          if (fromDate && aptDate < fromDate) return false;
+          if (toDate && aptDate > toDate) return false;
+          return true;
+        });
+      }
+
+      return filtered;
     },
 
     /**
      * Get appointments grouped by date
      */
     get appointmentsByDate() {
-      const grouped: { [key: string]: typeof self.appointments } = {};
+      const grouped: { [key: string]: any[] } = {};
       
-      self.filteredAppointments.forEach((apt) => {
+      this.filteredAppointments.forEach((apt) => {
         const date = new Date(apt.appointmentDate).toLocaleDateString();
         if (!grouped[date]) {
           grouped[date] = [];
@@ -87,7 +106,7 @@ export const AppointmentStore = types
      */
     get upcomingAppointments() {
       const now = new Date();
-      return self.filteredAppointments.filter(
+      return this.filteredAppointments.filter(
         (apt) => new Date(apt.appointmentDate) >= now
       );
     },
@@ -97,7 +116,7 @@ export const AppointmentStore = types
      */
     get pastAppointments() {
       const now = new Date();
-      return self.filteredAppointments.filter(
+      return this.filteredAppointments.filter(
         (apt) => new Date(apt.appointmentDate) < now
       );
     },
@@ -107,7 +126,7 @@ export const AppointmentStore = types
      */
     get todayAppointments() {
       const today = new Date().toDateString();
-      return self.filteredAppointments.filter(
+      return this.filteredAppointments.filter(
         (apt) => new Date(apt.appointmentDate).toDateString() === today
       );
     },
@@ -129,14 +148,15 @@ export const AppointmentStore = types
   }))
   .actions((self) => ({
     /**
-     * Fetch all appointments
+     * Fetch all appointments (always fetch ALL, filter locally)
      */
-    fetchAppointments: flow(function* (status?: string) {
+    fetchAppointments: flow(function* () {
       self.loading = true;
       self.error = null;
 
       try {
-        const appointments: AppointmentType[] = yield appointmentsService.getAppointments(status);
+        // Always fetch all appointments without status filter
+        const appointments: AppointmentType[] = yield appointmentsService.getAppointments(undefined);
         self.appointments = cast(appointments);
         self.loading = false;
       } catch (error: any) {
@@ -145,6 +165,29 @@ export const AppointmentStore = types
         self.loading = false;
       }
     }),
+
+    /**
+     * Set status filter
+     */
+    setStatusFilter(status: string) {
+      self.selectedStatus = status;
+    },
+
+    /**
+     * Set date range filter
+     */
+    setDateRange(from: string | null, to: string | null) {
+      self.dateRangeFrom = from;
+      self.dateRangeTo = to;
+    },
+
+    /**
+     * Clear date range filter
+     */
+    clearDateRange() {
+      self.dateRangeFrom = null;
+      self.dateRangeTo = null;
+    },
 
     /**
      * Fetch today's appointments
@@ -267,13 +310,6 @@ export const AppointmentStore = types
         throw error;
       }
     }),
-
-    /**
-     * Set status filter
-     */
-    setStatusFilter(status: string | null) {
-      self.selectedStatus = status;
-    },
 
     /**
      * Clear error

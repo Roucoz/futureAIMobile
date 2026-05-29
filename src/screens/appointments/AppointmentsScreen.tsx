@@ -66,13 +66,12 @@ const AppointmentsScreen = observer(() => {
 
   useEffect(() => {
     loadAppointments();
-  }, [appointmentStore.selectedStatus]);
+  }, []);
 
   const loadAppointments = async () => {
     try {
-      await appointmentStore.fetchAppointments(
-        appointmentStore.selectedStatus === 'ALL' ? undefined : appointmentStore.selectedStatus || undefined
-      );
+      // Always fetch all appointments, filtering happens in the store
+      await appointmentStore.fetchAppointments();
     } catch (error) {
       console.error('Failed to load appointments:', error);
     }
@@ -86,6 +85,16 @@ const AppointmentsScreen = observer(() => {
 
   const handleStatusFilter = (status: string) => {
     appointmentStore.setStatusFilter(status);
+  };
+
+  const handleDateFilter = () => {
+    // TODO: Show date picker modal
+    // For now, showing a placeholder alert
+    alert('Date filter coming soon!');
+  };
+
+  const clearDateFilter = () => {
+    appointmentStore.clearDateRange();
   };
 
   const renderAppointmentCard = ({ item }: any) => {
@@ -216,6 +225,14 @@ const AppointmentsScreen = observer(() => {
             {appointmentStore.filteredAppointments.length} total
           </Text>
         </View>
+        
+        {/* Date Filter Button */}
+        <TouchableOpacity 
+          style={styles.dateFilterButton}
+          onPress={handleDateFilter}
+        >
+          <Text style={styles.dateFilterIcon}>📅</Text>
+        </TouchableOpacity>
         
         {/* View Toggle */}
         <View style={styles.viewToggle}>
@@ -589,6 +606,18 @@ const styles = StyleSheet.create({
     fontSize: 32,
     color: '#fff',
     fontWeight: '300',
+  },
+  dateFilterButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  dateFilterIcon: {
+    fontSize: 20,
   },
 });
 

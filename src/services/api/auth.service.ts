@@ -27,6 +27,7 @@ export interface User {
   firstName: string;
   lastName: string;
   twoFactorEnabled: boolean;
+  createdAt?: string;
 }
 
 export interface Project {

@@ -329,6 +329,26 @@ export const ChatStore = types
       }
     });
 
+    const fetchAgentStatus = flow(function* () {
+      console.log('🔄 ChatStore.fetchAgentStatus() - START');
+      self.isStatusLoading = true;
+      self.error = null;
+
+      try {
+        const data = yield chatService.getAgentsWithStatus();
+        self.currentAgentStatus = data.currentStatus as 'ONLINE' | 'OFFLINE' | 'BUSY' | 'AWAY';
+        
+        console.log('✅ ChatStore.fetchAgentStatus() - Status:', data.currentStatus);
+      } catch (error: any) {
+        self.error = error.message || 'Failed to fetch status';
+        console.error('❌ ChatStore.fetchAgentStatus() - Error:', error);
+        // Default to OFFLINE if fetch fails
+        self.currentAgentStatus = 'OFFLINE';
+      } finally {
+        self.isStatusLoading = false;
+      }
+    });
+
     const selectChat = (chatId: string | null) => {
       self.selectedChatId = chatId;
       if (chatId) {
@@ -413,6 +433,7 @@ export const ChatStore = types
       releaseConversation,
       closeConversation,
       updateAgentStatus,
+      fetchAgentStatus,
       selectChat,
       setChatStatus,
       addAiTyping,

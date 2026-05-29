@@ -22,6 +22,7 @@ export const UserModel = types.model('User', {
   projectId: types.string,
   role: types.string,
   twoFactorEnabled: types.boolean,
+  createdAt: types.maybeNull(types.string),
 })
   .views((self) => ({
     get fullName() {
@@ -71,6 +72,7 @@ export const AuthStore = types
             projectId: response.project.id,
             role: response.role,
             twoFactorEnabled: response.user.twoFactorEnabled,
+            createdAt: response.user.createdAt || null,
           });
           
           self.memberId = response.memberId;
@@ -111,6 +113,7 @@ export const AuthStore = types
             projectId: response.project.id,
             role: response.role,
             twoFactorEnabled: response.user.twoFactorEnabled,
+            createdAt: response.user.createdAt || null,
           });
           
           self.memberId = response.memberId;
@@ -156,6 +159,7 @@ export const AuthStore = types
             projectId: response.project.id,
             role: response.role,
             twoFactorEnabled: response.user.twoFactorEnabled,
+            createdAt: response.user.createdAt || null,
           });
           
           self.memberId = response.memberId;

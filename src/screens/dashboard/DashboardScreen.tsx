@@ -5,6 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, RefreshControl, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth, useChat } from '../../stores';
@@ -24,6 +25,9 @@ const DashboardScreen = observer(() => {
 
   const loadDashboardData = async () => {
     try {
+      // Fetch current agent status first
+      await chatStore.fetchAgentStatus();
+      
       // Load conversations
       await chatStore.loadConversations('OPEN');
       
@@ -64,11 +68,12 @@ const DashboardScreen = observer(() => {
   const requiresAttentionCount = chatStore.escalationCount;
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}>
-      {/* Header */}
-      <View style={styles.header}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <ScrollView
+        style={styles.container}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}>
+        {/* Header */}
+        <View style={styles.header}>
         <Text style={styles.headerTitle}>Dashboard</Text>
         <Text style={styles.headerSubtitle}>Welcome, {authStore.user?.fullName}</Text>
       </View>
@@ -185,7 +190,8 @@ const DashboardScreen = observer(() => {
           <Text style={styles.quickActionArrow}>›</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 });
 
@@ -222,6 +228,10 @@ const formatAppointmentTime = (dateString: string): string => {
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f5f9',

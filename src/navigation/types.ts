@@ -5,6 +5,9 @@
 
 import { NavigatorScreenParams } from '@react-navigation/native';
 
+// Import types we need
+import { Contact } from '../services/api/contact.service';
+
 // Auth Navigator Params
 export type AuthStackParamList = {
   Login: undefined;
@@ -14,17 +17,25 @@ export type AuthStackParamList = {
 
 // Chat Stack Params
 export type ChatStackParamList = {
-  Dashboard: undefined;
   ConversationList: undefined;
   ChatDetail: { conversationId: string };
   CreateTicket: { conversationId: string };
 };
 
+// Contacts Stack Params
+export type ContactsStackParamList = {
+  ContactsList: undefined;
+  ContactDetail: { contact: Contact };
+  ContactConversations: { contactId: string; contactName: string; conversations: any[] };
+  ContactTickets: { contactId: string; contactName: string; tickets: any[] };
+};
+
 // App Navigator Params (Bottom Tabs)
 export type AppTabParamList = {
+  Dashboard: undefined;
   ChatStack: NavigatorScreenParams<ChatStackParamList>;
   Appointments: undefined;
-  Notifications: undefined;
+  ContactsStack: NavigatorScreenParams<ContactsStackParamList>;
   Profile: undefined;
 };
 
