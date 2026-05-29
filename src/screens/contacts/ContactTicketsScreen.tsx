@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/Ionicons';
 
 interface Ticket {
   id: string;
@@ -80,7 +81,10 @@ const ContactTicketsScreen = () => {
               {item.priority}
             </Text>
           </View>
-          <Text style={styles.categoryText}>📂 {item.category}</Text>
+          <View style={styles.categoryRow}>
+            <Icon name="folder" size={14} color="#666" style={{ marginRight: 4 }} />
+            <Text style={styles.categoryText}>{item.category}</Text>
+          </View>
         </View>
 
         <Text style={styles.dateText}>Created: {date}</Text>
@@ -103,7 +107,7 @@ const ContactTicketsScreen = () => {
           contentContainerStyle={styles.listContainer}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>🎫</Text>
+              <Icon name="ticket" size={64} color="#d9d9d9" style={styles.emptyIcon} />
               <Text style={styles.emptyText}>No tickets found</Text>
             </View>
           }
@@ -196,6 +200,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   categoryText: {
     fontSize: 12,
     color: '#666',
@@ -211,7 +219,7 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyIcon: {
-    fontSize: 48,
+
     marginBottom: 12,
   },
   emptyText: {

@@ -16,6 +16,7 @@ import {
   Alert,
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppointment } from '../../stores';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
@@ -222,14 +223,14 @@ const AppointmentFormModal = observer(({
                 style={styles.dateTimeButton}
                 onPress={() => setShowDatePicker(true)}
               >
-                <Text style={styles.dateTimeIcon}>📅</Text>
+                <Icon name="calendar" size={20} color="#1890ff" style={styles.dateTimeIcon} />
                 <Text style={styles.dateTimeText}>{format(appointmentDate, 'MMM dd, yyyy')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.dateTimeButton}
                 onPress={() => setShowTimePicker(true)}
               >
-                <Text style={styles.dateTimeIcon}>🕐</Text>
+                <Icon name="time" size={20} color="#1890ff" style={styles.dateTimeIcon} />
                 <Text style={styles.dateTimeText}>{format(appointmentDate, 'h:mm a')}</Text>
               </TouchableOpacity>
             </View>
@@ -458,7 +459,6 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   dateTimeIcon: {
-    fontSize: 20,
     marginRight: 8,
   },
   dateTimeText: {

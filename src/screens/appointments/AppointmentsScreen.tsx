@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppointment } from '../../stores';
 import { format } from 'date-fns';
 import AppointmentFormModal from './AppointmentFormModal';
@@ -38,21 +39,23 @@ const STATUS_LABELS: Record<string, string> = {
   NO_SHOW: 'No Show',
 };
 
-// Status icons (emoji)
-const STATUS_ICONS: Record<string, string> = {
-  PENDING: '🟠',
-  CONFIRMED: '🔵',
-  COMPLETED: '🟢',
-  CANCELED: '🔴',
-  NO_SHOW: '⚫',
+// Status icons
+const STATUS_ICON_NAMES: Record<string, string> = {
+  PENDING: 'time',
+  CONFIRMED: 'checkmark-circle',
+  COMPLETED: 'checkmark-done-circle',
+  CANCELED: 'close-circle',
+  NO_SHOW: 'alert-circle',
 };
 
 const STATUS_FILTERS = [
+  { key: 'date', label: 'Filter Dates', iconName: 'calendar' },
   { key: 'ALL', label: 'All' },
   { key: 'PENDING', label: 'Pending' },
   { key: 'CONFIRMED', label: 'Confirmed' },
   { key: 'COMPLETED', label: 'Completed' },
   { key: 'CANCELED', label: 'Canceled' },
+  { key: 'NO_SHOW', label: 'No Show' },
 ];
 
 const AppointmentsScreen = observer(() => {
@@ -84,6 +87,10 @@ const AppointmentsScreen = observer(() => {
   };
 
   const handleStatusFilter = (status: string) => {
+    if (status === 'date') {
+      handleDateFilter();
+      return;
+    }
     appointmentStore.setStatusFilter(status);
   };
 
@@ -121,34 +128,40 @@ const AppointmentsScreen = observer(() => {
             </Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[item.status] }]}>
-            <Text style={styles.statusIcon}>{STATUS_ICONS[item.status]}</Text>
+            <Icon name={STATUS_ICON_NAMES[item.status]} size={20} color="#fff" />
           </View>
         </View>
 
         {item.customerPhone && (
           <View style={styles.contactInfo}>
-            <Text style={styles.contactLabel}>📱</Text>
+            <Icon name="call" size={16} color="#1890ff" style={styles.contactIcon} />
             <Text style={styles.contactText}>{item.customerPhone}</Text>
           </View>
         )}
 
         {item.customerEmail && (
           <View style={styles.contactInfo}>
-            <Text style={styles.contactLabel}>✉️</Text>
+            <Icon name="mail" size={16} color="#1890ff" style={styles.contactIcon} />
             <Text style={styles.contactText}>{item.customerEmail}</Text>
           </View>
         )}
 
         {item.customerNotes && (
           <View style={styles.notesContainer}>
-            <Text style={styles.notesLabel}>📝 Customer Notes:</Text>
+            <View style={styles.notesLabelRow}>
+              <Icon name="document-text" size={16} color="#666" />
+              <Text style={styles.notesLabel}>Customer Notes:</Text>
+            </View>
             <Text style={styles.notesText}>{item.customerNotes}</Text>
           </View>
         )}
 
         {item.internalNotes && (
           <View style={styles.notesContainer}>
-            <Text style={styles.notesLabel}>🔒 Internal Notes:</Text>
+            <View style={styles.notesLabelRow}>
+              <Icon name="lock-closed" size={16} color="#666" />
+              <Text style={styles.notesLabel}>Internal Notes:</Text>
+            </View>
             <Text style={styles.notesText}>{item.internalNotes}</Text>
           </View>
         )}
@@ -159,7 +172,10 @@ const AppointmentsScreen = observer(() => {
             {STATUS_LABELS[item.status]}
           </Text>
           {isUpcoming && (
-            <Text style={styles.upcomingBadge}>⏰ Upcoming</Text>
+            <View style={styles.upcomingBadge}>
+              <Icon name="time" size={14} color="#fa8c16" style={{ marginRight: 4 }} />
+              <Text style={styles.upcomingText}>Upcoming</Text>
+            </View>
           )}
         </View>
       </TouchableOpacity>
@@ -204,7 +220,7 @@ const AppointmentsScreen = observer(() => {
 
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>📅</Text>
+        <Icon name="calendar" size={64} color="#d9d9d9" style={styles.emptyIcon} />
         <Text style={styles.emptyTitle}>No Appointments</Text>
         <Text style={styles.emptyText}>
           {appointmentStore.selectedStatus && appointmentStore.selectedStatus !== 'ALL'
@@ -226,31 +242,19 @@ const AppointmentsScreen = observer(() => {
           </Text>
         </View>
         
-        {/* Date Filter Button */}
-        <TouchableOpacity 
-          style={styles.dateFilterButton}
-          onPress={handleDateFilter}
-        >
-          <Text style={styles.dateFilterIcon}>📅</Text>
-        </TouchableOpacity>
-        
         {/* View Toggle */}
         <View style={styles.viewToggle}>
           <TouchableOpacity
             style={[styles.toggleButton, viewMode === 'list' && styles.toggleButtonActive]}
             onPress={() => setViewMode('list')}
           >
-            <Text style={[styles.toggleText, viewMode === 'list' && styles.toggleTextActive]}>
-              📋
-            </Text>
+            <Icon name="list" size={24} color={viewMode === 'list' ? '#1890ff' : '#999'} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.toggleButton, viewMode === 'week' && styles.toggleButtonActive]}
             onPress={() => setViewMode('week')}
           >
-            <Text style={[styles.toggleText, viewMode === 'week' && styles.toggleTextActive]}>
-              📅
-            </Text>
+            <Icon name="calendar" size={24} color={viewMode === 'week' ? '#1890ff' : '#999'} />
           </TouchableOpacity>
         </View>
       </View>
@@ -276,7 +280,7 @@ const AppointmentsScreen = observer(() => {
                     onPress={() => handleStatusFilter(item.key)}
                   >
                     <Text style={[styles.filterText, isSelected && styles.filterTextActive]}>
-                      {item.label} ({count})
+                      {item.label} {item.key !== 'date' && `(${count})`}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -287,7 +291,8 @@ const AppointmentsScreen = observer(() => {
           {/* Error Message */}
           {appointmentStore.error && (
             <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>❌ {appointmentStore.error}</Text>
+              <Icon name="alert-circle" size={20} color="#d4380d" style={{ marginRight: 8 }} />
+              <Text style={styles.errorText}>{appointmentStore.error}</Text>
               <TouchableOpacity style={styles.retryButton} onPress={loadAppointments}>
                 <Text style={styles.retryText}>Retry</Text>
               </TouchableOpacity>
@@ -484,16 +489,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statusIcon: {
-    fontSize: 20,
-  },
   contactInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
   },
-  contactLabel: {
-    fontSize: 14,
+  contactIcon: {
     marginRight: 8,
   },
   contactText: {
@@ -508,11 +509,16 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: '#1890ff',
   },
+  notesLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
   notesLabel: {
     fontSize: 12,
     fontWeight: '600',
     color: '#595959',
-    marginBottom: 4,
   },
   notesText: {
     fontSize: 14,
@@ -533,8 +539,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   upcomingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff7e6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  upcomingText: {
     fontSize: 12,
-    color: '#52c41a',
+    color: '#fa8c16',
     fontWeight: '500',
   },
   emptyContainer: {
@@ -544,7 +558,6 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyIcon: {
-    fontSize: 64,
     marginBottom: 16,
   },
   emptyTitle: {

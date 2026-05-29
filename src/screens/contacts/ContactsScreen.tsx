@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { ContactsStackParamList } from '../../navigation/types';
 import contactService, { Contact, GetContactsParams } from '../../services/api/contact.service';
 
@@ -193,9 +194,12 @@ const ContactsScreen = () => {
         </View>
 
         <View style={styles.contactMeta}>
-          <Text style={styles.metaText}>📱 {channels}</Text>
-          <Text style={styles.metaText}>💬 {item.totalConversations} chats</Text>
-          <Text style={styles.metaText}>📅 {lastContactDate}</Text>
+          <Icon name="call" size={14} color="#666" style={{ marginRight: 4 }} />
+          <Text style={styles.metaText}>{channels}</Text>
+          <Icon name="chatbubbles" size={14} color="#666" style={{ marginLeft: 12, marginRight: 4 }} />
+          <Text style={styles.metaText}>{item.totalConversations} chats</Text>
+          <Icon name="calendar" size={14} color="#666" style={{ marginLeft: 12, marginRight: 4 }} />
+          <Text style={styles.metaText}>{lastContactDate}</Text>
         </View>
 
         {item.tags && item.tags.length > 0 && (
@@ -218,7 +222,8 @@ const ContactsScreen = () => {
               e.stopPropagation();
               handleStartConversation(item);
             }}>
-            <Text style={styles.actionButtonText}>💬 Chat</Text>
+            <Icon name="chatbubbles" size={16} color="#1890ff" style={{ marginRight: 4 }} />
+            <Text style={styles.actionButtonText}>Chat</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.actionButton}
@@ -226,7 +231,8 @@ const ContactsScreen = () => {
               e.stopPropagation();
               handleCreateTicket(item);
             }}>
-            <Text style={styles.actionButtonText}>🎫 Create Ticket</Text>
+            <Icon name="ticket" size={16} color="#1890ff" style={{ marginRight: 4 }} />
+            <Text style={styles.actionButtonText}>Create Ticket</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -239,7 +245,7 @@ const ContactsScreen = () => {
     
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>👥</Text>
+        <Icon name="people" size={64} color="#d9d9d9" style={styles.emptyIcon} />
         <Text style={styles.emptyTitle}>No Contacts Found</Text>
         <Text style={styles.emptyText}>
           {searchQuery 
@@ -494,14 +500,13 @@ const styles = StyleSheet.create({
   },
   contactMeta: {
     flexDirection: 'row',
+    alignItems: 'center',
     flexWrap: 'wrap',
     marginBottom: 12,
   },
   metaText: {
     fontSize: 12,
     color: '#888',
-    marginRight: 12,
-    marginBottom: 4,
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -532,10 +537,12 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#f5f5f9',
     paddingVertical: 8,
     borderRadius: 6,
-    alignItems: 'center',
   },
   actionButtonText: {
     fontSize: 13,
@@ -559,7 +566,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyIcon: {
-    fontSize: 64,
     marginBottom: 16,
   },
   emptyTitle: {

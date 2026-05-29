@@ -8,6 +8,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, RefreshCo
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
 import { useNavigation } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth, useChat } from '../../stores';
 import { appointmentsService, Appointment } from '../../services/api/appointments.service';
 
@@ -109,7 +110,7 @@ const DashboardScreen = observer(() => {
           onPress={() => navigation.navigate('ConversationList')}>
           <Text style={styles.kpiValue}>{openChatsCount}</Text>
           <Text style={styles.kpiLabel}>Open Chats</Text>
-          <Text style={styles.kpiIcon}>💬</Text>
+          <Icon name="chatbubbles" size={32} color="#fff" style={styles.kpiIcon} />
         </TouchableOpacity>
 
         {/* Claimed Chats */}
@@ -118,7 +119,7 @@ const DashboardScreen = observer(() => {
           onPress={() => navigation.navigate('ConversationList')}>
           <Text style={styles.kpiValue}>{claimedChatsCount}</Text>
           <Text style={styles.kpiLabel}>Claimed by You</Text>
-          <Text style={styles.kpiIcon}>👤</Text>
+          <Icon name="person" size={32} color="#fff" style={styles.kpiIcon} />
         </TouchableOpacity>
 
         {/* Requires Attention */}
@@ -127,21 +128,24 @@ const DashboardScreen = observer(() => {
           onPress={() => navigation.navigate('ConversationList')}>
           <Text style={styles.kpiValue}>{requiresAttentionCount}</Text>
           <Text style={styles.kpiLabel}>Needs Attention</Text>
-          <Text style={styles.kpiIcon}>⚠️</Text>
+          <Icon name="warning" size={32} color="#fff" style={styles.kpiIcon} />
         </TouchableOpacity>
 
         {/* AI Disabled */}
         <TouchableOpacity style={[styles.kpiCard, styles.kpiCardPurple]}>
           <Text style={styles.kpiValue}>{chatStore.aiDisabledCount}</Text>
           <Text style={styles.kpiLabel}>AI Disabled</Text>
-          <Text style={styles.kpiIcon}>⏸️</Text>
+          <Icon name="pause-circle" size={32} color="#fff" style={styles.kpiIcon} />
         </TouchableOpacity>
       </View>
 
       {/* Upcoming Appointments */}
       {appointmentsEnabled && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>📅 Today's Appointments ({appointments.length})</Text>
+          <View style={styles.cardTitleRow}>
+            <Icon name="calendar" size={20} color="#1890ff" style={{ marginRight: 8, marginTop: -2 }} />
+            <Text style={styles.cardTitle}>Today's Appointments ({appointments.length})</Text>
+          </View>
           {appointments.length === 0 ? (
             <>
               <Text style={styles.placeholderText}>No appointments scheduled for today</Text>
@@ -166,9 +170,12 @@ const DashboardScreen = observer(() => {
                   <Text style={styles.appointmentService}>
                     {apt.serviceName} {apt.price ? `- $${apt.price}` : ''}
                   </Text>
-                  <Text style={styles.appointmentTime}>
-                    🕒 {formatAppointmentTime(apt.appointmentDate)}
-                  </Text>
+                  <View style={styles.appointmentTimeRow}>
+                    <Icon name="time-outline" size={16} color="#666" />
+                    <Text style={styles.appointmentTime}>
+                      {formatAppointmentTime(apt.appointmentDate)}
+                    </Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -182,7 +189,7 @@ const DashboardScreen = observer(() => {
         <TouchableOpacity
           style={styles.quickAction}
           onPress={() => navigation.navigate('ConversationList')}>
-          <Text style={styles.quickActionIcon}>💬</Text>
+          <Icon name="chatbubbles" size={24} color="#1890ff" style={styles.quickActionIcon} />
           <View style={styles.quickActionContent}>
             <Text style={styles.quickActionTitle}>View All Chats</Text>
             <Text style={styles.quickActionSubtitle}>Manage customer conversations</Text>
@@ -280,6 +287,11 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 4,
   },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   statusText: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -331,7 +343,6 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   kpiIcon: {
-    fontSize: 32,
     position: 'absolute',
     right: 16,
     top: 16,
@@ -355,7 +366,6 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f0f0f0',
   },
   quickActionIcon: {
-    fontSize: 28,
     marginRight: 16,
   },
   quickActionContent: {
@@ -410,9 +420,15 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 2,
   },
+  appointmentTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   appointmentTime: {
     fontSize: 12,
     color: '#999',
+    marginLeft: 4,
   },
 });
 

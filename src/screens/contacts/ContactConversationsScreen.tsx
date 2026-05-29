@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { ContactsStackParamList } from '../../navigation/types';
 
 interface Conversation {
@@ -58,7 +59,10 @@ const ContactConversationsScreen = () => {
           <View style={styles.statusBadge}>
             <Text style={styles.statusText}>{item.status}</Text>
           </View>
-          <Text style={styles.channelText}>📱 {item.channel}</Text>
+          <View style={styles.channelRow}>
+            <Icon name="call" size={14} color="#666" style={{ marginRight: 4 }} />
+            <Text style={styles.channelText}>{item.channel}</Text>
+          </View>
         </View>
         <Text style={styles.messagePreview} numberOfLines={2}>
           {item.lastMessagePreview || 'No messages'}
@@ -85,7 +89,7 @@ const ContactConversationsScreen = () => {
           contentContainerStyle={styles.listContainer}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>💬</Text>
+              <Icon name="chatbubbles" size={64} color="#d9d9d9" style={styles.emptyIcon} />
               <Text style={styles.emptyText}>No conversations found</Text>
             </View>
           }
@@ -151,6 +155,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1890ff',
   },
+  channelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   channelText: {
     fontSize: 12,
     color: '#666',
@@ -172,7 +180,7 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyIcon: {
-    fontSize: 48,
+
     marginBottom: 12,
   },
   emptyText: {

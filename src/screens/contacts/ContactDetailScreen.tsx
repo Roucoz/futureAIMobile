@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { ContactsStackParamList } from '../../navigation/types';
 import { Contact } from '../../services/api/contact.service';
 import contactService from '../../services/api/contact.service';
@@ -124,7 +125,8 @@ const ContactDetailScreen = () => {
           
           {contact.isVip && (
             <View style={styles.vipBadge}>
-              <Text style={styles.vipText}>⭐ VIP Customer</Text>
+              <Icon name="star" size={16} color="#faad14" style={{ marginRight: 4 }} />
+              <Text style={styles.vipText}>VIP Customer</Text>
             </View>
           )}
         </View>
@@ -135,7 +137,7 @@ const ContactDetailScreen = () => {
             style={[styles.actionButton, styles.primaryButton]}
             onPress={handleStartChat}
             disabled={isLoading}>
-            <Text style={styles.actionButtonIcon}>💬</Text>
+            <Icon name="chatbubbles" size={20} color="#fff" style={styles.actionButtonIcon} />
             <Text style={styles.actionButtonText}>Start Chat</Text>
           </TouchableOpacity>
 
@@ -143,7 +145,7 @@ const ContactDetailScreen = () => {
             style={[styles.actionButton, styles.secondaryButton]}
             onPress={handleCreateTicket}
             disabled={isLoading}>
-            <Text style={styles.actionButtonIcon}>🎫</Text>
+            <Icon name="ticket" size={20} color="#fff" style={styles.actionButtonIcon} />
             <Text style={styles.actionButtonText}>Create Ticket</Text>
           </TouchableOpacity>
         </View>
@@ -155,7 +157,7 @@ const ContactDetailScreen = () => {
             onPress={handleViewChats}
             disabled={isLoading}>
             <View style={styles.historyButtonHeader}>
-              <Text style={styles.historyButtonIcon}>💬</Text>
+              <Icon name="chatbubbles" size={24} color="#1890ff" style={styles.historyButtonIcon} />
               <View style={styles.historyButtonInfo}>
                 <Text style={styles.historyButtonTitle}>Chat History</Text>
                 <Text style={styles.historyButtonSubtitle}>
@@ -171,7 +173,7 @@ const ContactDetailScreen = () => {
             onPress={handleViewTickets}
             disabled={isLoading}>
             <View style={styles.historyButtonHeader}>
-              <Text style={styles.historyButtonIcon}>🎫</Text>
+              <Icon name="ticket" size={24} color="#1890ff" style={styles.historyButtonIcon} />
               <View style={styles.historyButtonInfo}>
                 <Text style={styles.historyButtonTitle}>Ticket History</Text>
                 <Text style={styles.historyButtonSubtitle}>View all tickets</Text>
@@ -306,6 +308,8 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   vipBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fff4e6',
     paddingHorizontal: 16,
     paddingVertical: 6,
@@ -371,7 +375,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   historyButtonIcon: {
-    fontSize: 24,
   },
   historyButtonInfo: {
     flex: 1,

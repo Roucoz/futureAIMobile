@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { AppTabParamList } from './types';
 
 // Import navigators and screens
@@ -38,17 +39,14 @@ const AppNavigator = () => {
         tabBarLabelStyle: {
           fontSize: 12,
         },
-        tabBarIconStyle: {
-          fontSize: 24,
-        },
       }}>
       <Tab.Screen
         name="Dashboard"
         component={DashboardScreen}
         options={{ 
           title: 'Dashboard',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 24, color }}>📊</Text>
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="stats-chart" size={size} color={color} />
           ),
         }}
       />
@@ -57,8 +55,8 @@ const AppNavigator = () => {
         component={ChatNavigator}
         options={{ 
           title: 'Chats',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 24, color }}>💬</Text>
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="chatbubbles" size={size} color={color} />
           ),
         }}
       />
@@ -67,8 +65,8 @@ const AppNavigator = () => {
         component={AppointmentsScreen}
         options={{ 
           title: 'Appointments',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 24, color }}>📅</Text>
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="calendar" size={size} color={color} />
           ),
         }}
       />
@@ -77,8 +75,8 @@ const AppNavigator = () => {
         component={ContactsNavigator}
         options={{ 
           title: 'Contacts',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 24, color }}>👥</Text>
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="people" size={size} color={color} />
           ),
         }}
       />
@@ -87,8 +85,8 @@ const AppNavigator = () => {
         component={ProfileScreen}
         options={{ 
           title: 'Profile',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 24, color }}>👤</Text>
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="person" size={size} color={color} />
           ),
         }}
       />

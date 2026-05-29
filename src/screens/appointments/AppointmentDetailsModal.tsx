@@ -16,6 +16,7 @@ import {
   Linking,
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppointment } from '../../stores';
 import { format } from 'date-fns';
 
@@ -53,12 +54,20 @@ const STATUS_ICONS: Record<string, string> = {
   NO_SHOW: '⚫',
 };
 
+const STATUS_ICON_NAMES: Record<string, string> = {
+  PENDING: 'time',
+  CONFIRMED: 'checkmark-circle',
+  COMPLETED: 'checkmark-done-circle',
+  CANCELED: 'close-circle',
+  NO_SHOW: 'alert-circle',
+};
+
 const STATUS_OPTIONS = [
-  { key: 'PENDING', label: 'Pending', icon: '🟠' },
-  { key: 'CONFIRMED', label: 'Confirmed', icon: '🔵' },
-  { key: 'COMPLETED', label: 'Completed', icon: '🟢' },
-  { key: 'CANCELED', label: 'Canceled', icon: '🔴' },
-  { key: 'NO_SHOW', label: 'No Show', icon: '⚫' },
+  { key: 'PENDING', label: 'Pending', icon: '🟠', iconName: 'time' },
+  { key: 'CONFIRMED', label: 'Confirmed', icon: '🔵', iconName: 'checkmark-circle' },
+  { key: 'COMPLETED', label: 'Completed', icon: '🟢', iconName: 'checkmark-done-circle' },
+  { key: 'CANCELED', label: 'Canceled', icon: '🔴', iconName: 'close-circle' },
+  { key: 'NO_SHOW', label: 'No Show', icon: '⚫', iconName: 'alert-circle' },
 ];
 
 const AppointmentDetailsModal = observer(({
@@ -135,13 +144,16 @@ const AppointmentDetailsModal = observer(({
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Status Badge */}
           <View style={[styles.statusBanner, { backgroundColor: STATUS_COLORS[appointment.status] }]}>
-            <Text style={styles.statusBannerIcon}>{STATUS_ICONS[appointment.status]}</Text>
+            <Icon name={STATUS_ICON_NAMES[appointment.status]} size={24} color="#fff" style={styles.statusBannerIcon} />
             <Text style={styles.statusBannerText}>{STATUS_LABELS[appointment.status]}</Text>
           </View>
 
           {/* Date & Time */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📅 Date & Time</Text>
+            <View style={styles.sectionTitleRow}>
+              <Icon name="calendar" size={18} color="#1890ff" style={{marginTop: -10}} />
+              <Text style={styles.sectionTitle}>Date & Time</Text>
+            </View>
             <View style={styles.dateTimeCard}>
               <Text style={styles.dateText}>{format(appointmentDate, 'EEEE, MMMM dd, yyyy')}</Text>
               <Text style={styles.timeText}>{format(appointmentDate, 'h:mm a')}</Text>
@@ -150,7 +162,8 @@ const AppointmentDetailsModal = observer(({
               </Text>
               {isUpcoming && (
                 <View style={styles.upcomingBadge}>
-                  <Text style={styles.upcomingText}>⏰ Upcoming</Text>
+                  <Icon name="time" size={14} color="#fa8c16" style={{ marginRight: 4 }} />
+                  <Text style={styles.upcomingText}>Upcoming</Text>
                 </View>
               )}
             </View>
@@ -158,7 +171,10 @@ const AppointmentDetailsModal = observer(({
 
           {/* Service */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>💼 Service</Text>
+            <View style={styles.sectionTitleRow}>
+              <Icon name="briefcase" size={18} color="#1890ff"  style={{marginTop: -10}}/>
+              <Text style={styles.sectionTitle}>Service</Text>
+            </View>
             <View style={styles.infoCard}>
               <Text style={styles.serviceName}>{appointment.service.name}</Text>
               {appointment.service.category && (
@@ -172,13 +188,16 @@ const AppointmentDetailsModal = observer(({
 
           {/* Customer */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>👤 Customer</Text>
+            <View style={styles.sectionTitleRow}>
+              <Icon name="person" size={18} color="#1890ff" style={{marginTop: -10}}/>
+              <Text style={styles.sectionTitle}>Customer</Text>
+            </View>
             <View style={styles.infoCard}>
               <Text style={styles.customerName}>{appointment.customerName}</Text>
               
               {appointment.customerPhone && (
                 <TouchableOpacity style={styles.contactRow} onPress={handleCall}>
-                  <Text style={styles.contactIcon}>📱</Text>
+                  <Icon name="call" size={18} color="#1890ff" style={styles.contactIcon} />
                   <Text style={styles.contactText}>{appointment.customerPhone}</Text>
                   <Text style={styles.contactAction}>Call</Text>
                 </TouchableOpacity>
@@ -186,7 +205,7 @@ const AppointmentDetailsModal = observer(({
               
               {appointment.customerEmail && (
                 <TouchableOpacity style={styles.contactRow} onPress={handleEmail}>
-                  <Text style={styles.contactIcon}>✉️</Text>
+                  <Icon name="mail" size={18} color="#1890ff" style={styles.contactIcon} />
                   <Text style={styles.contactText}>{appointment.customerEmail}</Text>
                   <Text style={styles.contactAction}>Email</Text>
                 </TouchableOpacity>
@@ -197,7 +216,10 @@ const AppointmentDetailsModal = observer(({
           {/* Customer Notes */}
           {appointment.customerNotes && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>📝 Customer Notes</Text>
+              <View style={styles.sectionTitleRow}>
+                <Icon name="document-text" size={18} color="#1890ff" style={{marginTop: -10}}/>
+                <Text style={styles.sectionTitle}>Customer Notes</Text>
+              </View>
               <View style={styles.notesCard}>
                 <Text style={styles.notesText}>{appointment.customerNotes}</Text>
               </View>
@@ -207,7 +229,10 @@ const AppointmentDetailsModal = observer(({
           {/* Internal Notes */}
           {appointment.internalNotes && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>🔒 Internal Notes</Text>
+              <View style={styles.sectionTitleRow}>
+                <Icon name="lock-closed" size={18} color="#1890ff" style={{marginTop: -10}}/>
+                <Text style={styles.sectionTitle}>Internal Notes</Text>
+              </View>
               <View style={[styles.notesCard, styles.internalNotesCard]}>
                 <Text style={styles.notesText}>{appointment.internalNotes}</Text>
               </View>
@@ -216,37 +241,48 @@ const AppointmentDetailsModal = observer(({
 
           {/* Change Status */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🔄 Change Status</Text>
+            <View style={styles.sectionTitleRow}>
+              <Icon name="refresh" size={18} color="#1890ff" style={{marginTop: -10}} />
+              <Text style={styles.sectionTitle}>Change Status</Text>
+            </View>
             {updatingStatus ? (
               <ActivityIndicator size="small" color="#1890ff" />
             ) : (
               <View style={styles.statusButtons}>
-                {STATUS_OPTIONS.map((status) => (
+                {STATUS_OPTIONS.map((status) => {
+                  const isActive = appointment.status === status.key;
+                  const statusColor = STATUS_COLORS[status.key];
+                  return (
                   <TouchableOpacity
                     key={status.key}
                     style={[
                       styles.statusButton,
-                      appointment.status === status.key && styles.statusButtonActive,
+                     isActive && styles.statusButtonActive,
+                      isActive && {backgroundColor: statusColor}
                     ]}
                     onPress={() => handleStatusChange(status.key)}
                     disabled={appointment.status === status.key}
                   >
-                    <Text style={styles.statusButtonIcon}>{status.icon}</Text>
+                    <Icon name={status.iconName} size={20} color={!isActive ? '#eee' : "#fff"} style={styles.statusButtonIcon} />
                     <Text style={[
                       styles.statusButtonText,
                       appointment.status === status.key && styles.statusButtonTextActive,
+                      isActive && {color: '#fff'}
                     ]}>
                       {status.label}
                     </Text>
                   </TouchableOpacity>
-                ))}
+                )})}
               </View>
             )}
           </View>
 
           {/* Metadata */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>ℹ️ Information</Text>
+            <View style={styles.sectionTitleRow}>
+              <Icon name="information-circle" size={18} color="#1890ff" style={{marginTop: -10}} />
+              <Text style={styles.sectionTitle}>Information</Text>
+            </View>
             <View style={styles.metaCard}>
               <Text style={styles.metaText}>
                 Created: {format(new Date(appointment.createdAt), 'MMM dd, yyyy h:mm a')}
@@ -318,7 +354,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   statusBannerIcon: {
-    fontSize: 24,
     marginRight: 8,
   },
   statusBannerText: {
@@ -328,6 +363,12 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 20,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
   },
   sectionTitle: {
     fontSize: 16,
@@ -404,7 +445,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#f0f0f0',
   },
   contactIcon: {
-    fontSize: 20,
+
     marginRight: 12,
   },
   contactText: {
@@ -442,7 +483,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: '#d9d9d9',
     borderRadius: 8,
     paddingVertical: 10,
@@ -454,8 +495,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e6f7ff',
   },
   statusButtonIcon: {
-    fontSize: 18,
-    marginRight: 8,
+    marginRight: 6,
   },
   statusButtonText: {
     fontSize: 14,

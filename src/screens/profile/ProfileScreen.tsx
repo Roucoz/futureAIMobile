@@ -13,15 +13,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../../stores';
 import { format } from 'date-fns';
 
 const ProfileScreen = observer(() => {
   const authStore = useAuth();
 
-  const InfoRow = ({ label, value, icon }: { label: string; value: string; icon: string }) => (
+  const InfoRow = ({ label, value, iconName }: { label: string; value: string; iconName: string }) => (
     <View style={styles.infoRow}>
-      <Text style={styles.icon}>{icon}</Text>
+      <Icon name={iconName} size={20} color="#1890ff" style={styles.icon} />
       <View style={styles.infoContent}>
         <Text style={styles.label}>{label}</Text>
         <Text style={styles.value}>{value}</Text>
@@ -58,39 +59,39 @@ const ProfileScreen = observer(() => {
             {/* Info Rows */}
             <View style={styles.infoContainer}>
               <InfoRow 
-                icon="✉️" 
+                iconName="mail" 
                 label="Email" 
                 value={authStore.user?.email || 'N/A'} 
               />
               
               <InfoRow 
-                icon="👤" 
+                iconName="person" 
                 label="First Name" 
                 value={authStore.user?.firstName || 'N/A'} 
               />
               
               <InfoRow 
-                icon="👤" 
+                iconName="person-outline" 
                 label="Last Name" 
                 value={authStore.user?.lastName || 'N/A'} 
               />
               
               <InfoRow 
-                icon="🏢" 
+                iconName="business" 
                 label="Project ID" 
                 value={authStore.user?.projectId || 'N/A'} 
               />
 
               {authStore.user?.createdAt && (
                 <InfoRow 
-                  icon="📅" 
+                  iconName="calendar" 
                   label="Member Since" 
                   value={format(new Date(authStore.user.createdAt), 'MMM dd, yyyy')} 
                 />
               )}
 
               <InfoRow 
-                icon={authStore.user?.twoFactorEnabled ? "🔒" : "🔓"} 
+                iconName={authStore.user?.twoFactorEnabled ? "lock-closed" : "lock-open"} 
                 label="Two-Factor Auth" 
                 value={authStore.user?.twoFactorEnabled ? 'Enabled' : 'Disabled'} 
               />
@@ -104,7 +105,7 @@ const ProfileScreen = observer(() => {
               onPress={() => authStore.logout()}
               activeOpacity={0.8}
             >
-              <Text style={styles.logoutIcon}>🚪</Text>
+              <Icon name="log-out" size={20} color="#fff" style={styles.logoutIcon} />
               <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>
           </View>
@@ -206,9 +207,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   icon: {
-    fontSize: 24,
     marginRight: 12,
     width: 32,
+    marginTop: 4,
   },
   infoContent: {
     flex: 1,
@@ -228,14 +229,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   logoutButton: {
-    backgroundColor: '#fff',
+    backgroundColor: '#f5222d',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#f5222d',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -243,13 +242,14 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   logoutIcon: {
-    fontSize: 20,
     marginRight: 8,
   },
   logoutText: {
-    color: '#f5222d',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    backgroundColor: '#f5222d',
+    color: "white"
+    
   },
   version: {
     textAlign: 'center',

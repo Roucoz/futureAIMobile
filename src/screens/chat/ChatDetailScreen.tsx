@@ -23,6 +23,7 @@ import {
 import { observer } from 'mobx-react-lite';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { format } from 'date-fns';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { useChat, useAuth } from '../../stores';
 import { ChatStackParamList } from '../../navigation/types';
 import VoicePlayer from '../../components/audio/VoicePlayer';
@@ -317,7 +318,7 @@ const ChatDetailScreen = observer(() => {
           {sending ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.sendButtonText}>Send</Text>
+            <Icon name="send" size={20} color="#fff" />
           )}
         </TouchableOpacity>
       </View>
