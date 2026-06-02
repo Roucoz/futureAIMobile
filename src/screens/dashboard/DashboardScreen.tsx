@@ -3,28 +3,28 @@
  * Shows KPI cards for agent metrics + upcoming appointments
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { AppTabParamList } from '../../navigation/types';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth, useChat } from '../../stores';
 import { appointmentsService, Appointment } from '../../services/api/appointments.service';
 
+type DashboardNavigationProp = BottomTabNavigationProp<AppTabParamList, 'Dashboard'>;
+
 const DashboardScreen = observer(() => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<DashboardNavigationProp>();
   const authStore = useAuth();
   const chatStore = useChat();
   const [refreshing, setRefreshing] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [appointmentsEnabled, setAppointmentsEnabled] = useState(false);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       // Fetch current agent status first
       await chatStore.fetchAgentStatus();
@@ -43,10 +43,14 @@ const DashboardScreen = observer(() => {
           setAppointmentsEnabled(false);
         }
       }
-    } catch (error) {
-      console.error('Failed to load dashboard:', error);
+    } catch (err) {
+      console.error('Failed to load dashboard:', err);
     }
-  };
+  }, [chatStore]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -107,7 +111,7 @@ const DashboardScreen = observer(() => {
         {/* Open Chats */}
         <TouchableOpacity
           style={[styles.kpiCard, styles.kpiCardBlue]}
-          onPress={() => navigation.navigate('ConversationList')}>
+          onPress={() => (navigation as any).navigate('ChatStack', { screen: 'ConversationList' })}>
           <Text style={styles.kpiValue}>{openChatsCount}</Text>
           <Text style={styles.kpiLabel}>Open Chats</Text>
           <Icon name="chatbubbles" size={32} color="#fff" style={styles.kpiIcon} />
@@ -116,7 +120,7 @@ const DashboardScreen = observer(() => {
         {/* Claimed Chats */}
         <TouchableOpacity
           style={[styles.kpiCard, styles.kpiCardGreen]}
-          onPress={() => navigation.navigate('ConversationList')}>
+          onPress={() => (navigation as any).navigate('ChatStack', { screen: 'ConversationList' })}>
           <Text style={styles.kpiValue}>{claimedChatsCount}</Text>
           <Text style={styles.kpiLabel}>Claimed by You</Text>
           <Icon name="person" size={32} color="#fff" style={styles.kpiIcon} />
@@ -125,7 +129,7 @@ const DashboardScreen = observer(() => {
         {/* Requires Attention */}
         <TouchableOpacity
           style={[styles.kpiCard, styles.kpiCardOrange]}
-          onPress={() => navigation.navigate('ConversationList')}>
+          onPress={() => (navigation as any).navigate('ChatStack', { screen: 'ConversationList' })}>
           <Text style={styles.kpiValue}>{requiresAttentionCount}</Text>
           <Text style={styles.kpiLabel}>Needs Attention</Text>
           <Icon name="warning" size={32} color="#fff" style={styles.kpiIcon} />
@@ -168,7 +172,7 @@ const DashboardScreen = observer(() => {
                     </View>
                   </View>
                   <Text style={styles.appointmentService}>
-                    {apt.serviceName} {apt.price ? `- $${apt.price}` : ''}
+                    {apt.service?.name || 'N/A'} {apt.service?.price ? `- $${apt.service.price}` : ''}
                   </Text>
                   <View style={styles.appointmentTimeRow}>
                     <Icon name="time-outline" size={16} color="#666" />
@@ -188,7 +192,7 @@ const DashboardScreen = observer(() => {
         <Text style={styles.cardTitle}>Quick Actions</Text>
         <TouchableOpacity
           style={styles.quickAction}
-          onPress={() => navigation.navigate('ConversationList')}>
+          onPress={() => (navigation as any).navigate('ChatStack', { screen: 'ConversationList' })}>
           <Icon name="chatbubbles" size={24} color="#1890ff" style={styles.quickActionIcon} />
           <View style={styles.quickActionContent}>
             <Text style={styles.quickActionTitle}>View All Chats</Text>

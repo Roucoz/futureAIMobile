@@ -6,6 +6,7 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ChatStackParamList } from './types';
+import CustomBackButton from '../components/navigation/CustomBackButton';
 
 // Import screens
 import ConversationListScreen from '../screens/chat/ConversationListScreen';
@@ -14,11 +15,15 @@ import CreateTicketScreen from '../screens/ticket/CreateTicketScreen';
 
 const Stack = createStackNavigator<ChatStackParamList>();
 
+// Custom back button for all screens
+const renderBackButton = () => <CustomBackButton />;
+
 const ChatNavigator = () => {
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
+        headerLeft: renderBackButton,
       }}>
       <Stack.Screen
         name="ConversationList"

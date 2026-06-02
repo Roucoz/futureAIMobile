@@ -14,6 +14,7 @@ import {
   Alert,
   ActivityIndicator,
   Linking,
+  Platform,
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -126,7 +127,7 @@ const AppointmentDetailsModal = observer(({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
       onRequestClose={onClose}
     >
       <View style={styles.container}>
@@ -258,7 +259,7 @@ const AppointmentDetailsModal = observer(({
                     style={[
                       styles.statusButton,
                      isActive && styles.statusButtonActive,
-                      isActive && {backgroundColor: statusColor}
+                      isActive && {backgroundColor: statusColor, border: statusColor}
                     ]}
                     onPress={() => handleStatusChange(status.key)}
                     disabled={appointment.status === status.key}

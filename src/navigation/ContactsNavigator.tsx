@@ -6,6 +6,7 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ContactsStackParamList } from './types';
+import CustomBackButton from '../components/navigation/CustomBackButton';
 
 // Import screens
 import ContactsScreen from '../screens/contacts/ContactsScreen';
@@ -15,11 +16,15 @@ import ContactTicketsScreen from '../screens/contacts/ContactTicketsScreen';
 
 const Stack = createStackNavigator<ContactsStackParamList>();
 
+// Custom back button for all screens
+const renderBackButton = () => <CustomBackButton />;
+
 const ContactsNavigator = () => {
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
+        headerLeft: renderBackButton,
       }}>
       <Stack.Screen
         name="ContactsList"
