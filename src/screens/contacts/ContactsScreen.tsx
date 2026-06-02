@@ -14,6 +14,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -35,8 +36,9 @@ const ContactsScreen = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [sortBy, setSortBy] = useState<'lastContactedAt' | 'name' | 'totalConversations'>('lastContactedAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [filterType, setFilterType] = useState<'ALL' | 'NEW' | 'RETURNING' | 'VIP'>('ALL');
-
+  type CustomerType = 'ALL' | 'NEW' | 'REGULAR' | 'VIP' | 'BLOCKED' | 'INACTIVE';
+  const [filterType, setFilterType] = useState<CustomerType>('ALL');
+  
   // Load contacts
   const loadContacts = useCallback(async (pageNum: number = 1, append: boolean = false) => {
     if (!append) {
@@ -289,7 +291,7 @@ const ContactsScreen = () => {
 
       {/* Filter Tabs */}
       <View style={styles.filterContainer}>
-        {(['ALL', 'NEW', 'RETURNING', 'VIP'] as const).map((filter) => (
+        {(['ALL' , 'NEW' ,'REGULAR' , 'VIP' , 'BLOCKED' , 'INACTIVE'] as const).map((filter) => (
           <TouchableOpacity
             key={filter}
             style={[styles.filterTab, filterType === filter && styles.filterTabActive]}
@@ -391,6 +393,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e8e8e8',
+    flex: 0,
   },
   filterTab: {
     paddingHorizontal: 16,
