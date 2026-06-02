@@ -3,7 +3,7 @@
  * View and manage appointments
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -67,18 +67,18 @@ const AppointmentsScreen = observer(() => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'list' | 'week'>('list');
 
-  useEffect(() => {
-    loadAppointments();
-  }, []);
-
-  const loadAppointments = async () => {
+  const loadAppointments = useCallback(async () => {
     try {
       // Always fetch all appointments, filtering happens in the store
       await appointmentStore.fetchAppointments();
     } catch (error) {
       console.error('Failed to load appointments:', error);
     }
-  };
+  }, [appointmentStore]);
+
+  useEffect(() => {
+    loadAppointments();
+  }, [loadAppointments]);
 
   const onRefresh = async () => {
     setRefreshing(true);

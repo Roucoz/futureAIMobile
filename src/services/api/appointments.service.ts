@@ -53,10 +53,8 @@ class AppointmentsService {
    * Get all appointments
    */
   async getAppointments(status?: string): Promise<Appointment[]> {
-    console.log('🔄 appointmentsService.getAppointments() - status:', status);
     const params = status ? `?status=${status}` : '';
     const response = await apiClient.get(`/v1/admin/appointments${params}`);
-    console.log('✅ appointmentsService.getAppointments() - Count:', response.data.appointments?.length || 0);
     return response.data.appointments || [];
   }
 
@@ -64,20 +62,98 @@ class AppointmentsService {
    * Get upcoming appointments for today
    */
   async getTodayAppointments(): Promise<Appointment[]> {
-    console.log('🔄 appointmentsService.getTodayAppointments()');
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const response = await apiClient.get(`/v1/admin/appointments?date=${today}`);
-    console.log('✅ appointmentsService.getTodayAppointments() - Count:', response.data.appointments?.length || 0);
     return response.data.appointments || [];
+  }
+
+  /**
+   * Get future appointments (next 30 days, limited to 5)
+   * Optimized for dashboard display - shows the nearest 5 upcoming appointments
+   */
+  async getFutureAppointments(limit: number = 5): Promise<Appointment[]> {
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() + 1); // Tomorrow onwards
+    const endDate = new Date(today);
+    endDate.setDate(today.getDate() + 30); // Next 30 days
+    
+    const response = await apiClient.get(
+      `/v1/admin/appointments?startDate=${startDate.toISOString().split('T')[0]}&endDate=${endDate.toISOString().split('T')[0]}`
+    );
+    
+    const appointments = response.data.appointments || [];
+    // Sort by date ascending and limit results
+    const sorted = appointments
+      .sort((a: Appointment, b: Appointment) => 
+        new Date(a.appointmentDate).getTime() - new Date(b.appointmentDate).getTime()
+      )
+      .slice(0, limit);
+    
+    return sorted;
+  }
+
+  /**
+   * Get past incomplete appointments (last 30 days, limited to 5)
+   * Only returns PENDING and CONFIRMED appointments from the past
+   */
+  async getPastIncompleteAppointments(limit: number = 5): Promise<Appointment[]> {
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - 30); // Last 30 days
+    const endDate = new Date(today);
+    endDate.setDate(today.getDate() - 1); // Up to yesterday
+    
+    const response = await apiClient.get(
+      `/v1/admin/appointments?startDate=${startDate.toISOString().split('T')[0]}&endDate=${endDate.toISOString().split('T')[0]}`
+    );
+    
+    const appointments = response.data.appointments || [];
+    // Filter incomplete (not COMPLETED or CANCELED) and sort by date descending
+    const incomplete = appointments
+      .filter((apt: Appointment) => apt.status !== 'COMPLETED' && apt.status !== 'CANCELED')
+      .sort((a: Appointment, b: Appointment) => 
+        new Date(b.appointmentDate).getTime() - new Date(a.appointmentDate).getTime()
+      )
+      .slice(0, limit);
+    
+    return incomplete;
+  }
+
+  /**
+   * Get count of PAST incomplete appointments only
+   * Returns count of PENDING and CONFIRMED appointments from before today
+   */
+  async getIncompleteAppointmentsCount(): Promise<number> {
+    try {
+      const today = new Date();
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - 90); // Last 90 days
+      const endDate = new Date(today);
+      endDate.setDate(today.getDate() - 1); // Up to yesterday
+      
+      const response = await apiClient.get(
+        `/v1/admin/appointments?startDate=${startDate.toISOString().split('T')[0]}&endDate=${endDate.toISOString().split('T')[0]}`
+      );
+      
+      const appointments = response.data.appointments || [];
+      // Count only incomplete appointments (not COMPLETED or CANCELED)
+      const incompleteCount = appointments.filter(
+        (apt: Appointment) => apt.status !== 'COMPLETED' && apt.status !== 'CANCELED'
+      ).length;
+      
+      return incompleteCount;
+    } catch (error) {
+      console.error('❌ appointmentsService.getIncompleteAppointmentsCount() - Error:', error);
+      return 0;
+    }
   }
 
   /**
    * Get appointment by ID
    */
   async getAppointmentById(appointmentId: string): Promise<Appointment> {
-    console.log('🔄 appointmentsService.getAppointmentById() - appointmentId:', appointmentId);
     const response = await apiClient.get(`/v1/admin/appointments/${appointmentId}`);
-    console.log('✅ appointmentsService.getAppointmentById() - Success');
     return response.data.appointment;
   }
 
@@ -88,9 +164,7 @@ class AppointmentsService {
     appointmentId: string,
     status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW',
   ): Promise<Appointment> {
-    console.log('📤 appointmentsService.updateAppointmentStatus() - appointmentId:', appointmentId, 'status:', status);
     const response = await apiClient.patch(`/v1/admin/appointments/${appointmentId}`, { status });
-    console.log('✅ appointmentsService.updateAppointmentStatus() - Success');
     return response.data.appointment;
   }
 
@@ -98,11 +172,9 @@ class AppointmentsService {
    * Reschedule appointment
    */
   async rescheduleAppointment(appointmentId: string, newDate: string): Promise<Appointment> {
-    console.log('📤 appointmentsService.rescheduleAppointment() - appointmentId:', appointmentId);
     const response = await apiClient.patch(`/v1/admin/appointments/${appointmentId}`, {
       appointmentDate: newDate,
     });
-    console.log('✅ appointmentsService.rescheduleAppointment() - Success');
     return response.data.appointment;
   }
 
@@ -110,9 +182,7 @@ class AppointmentsService {
    * Create new appointment
    */
   async createAppointment(data: CreateAppointmentDto): Promise<Appointment> {
-    console.log('📤 appointmentsService.createAppointment() - data:', data);
     const response = await apiClient.post('/v1/admin/appointments', data);
-    console.log('✅ appointmentsService.createAppointment() - Success');
     return response.data.appointment;
   }
 
@@ -120,9 +190,7 @@ class AppointmentsService {
    * Update appointment
    */
   async updateAppointment(appointmentId: string, data: UpdateAppointmentDto): Promise<Appointment> {
-    console.log('📤 appointmentsService.updateAppointment() - appointmentId:', appointmentId);
     const response = await apiClient.patch(`/v1/admin/appointments/${appointmentId}`, data);
-    console.log('✅ appointmentsService.updateAppointment() - Success');
     return response.data.appointment;
   }
 
@@ -130,9 +198,7 @@ class AppointmentsService {
    * Get all services
    */
   async getServices(): Promise<Service[]> {
-    console.log('🔄 appointmentsService.getServices()');
     const response = await apiClient.get('/v1/admin/services');
-    console.log('✅ appointmentsService.getServices() - Count:', response.data.services?.length || 0);
     return response.data.services || [];
   }
 }

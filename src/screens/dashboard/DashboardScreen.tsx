@@ -7,7 +7,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
-import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { AppTabParamList } from '../../navigation/types';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -23,6 +23,8 @@ const DashboardScreen = observer(() => {
   const [refreshing, setRefreshing] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [appointmentsEnabled, setAppointmentsEnabled] = useState(false);
+  const [appointmentsSectionTitle, setAppointmentsSectionTitle] = useState('Today\'s Appointments');
+  const [appointmentsSubtitle, setAppointmentsSubtitle] = useState<string | null>(null);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -32,14 +34,74 @@ const DashboardScreen = observer(() => {
       // Load conversations
       await chatStore.loadConversations('OPEN');
       
-      // Load appointments (if module enabled)
+      // Load appointments (if module enabled) - OPTIMIZED: Only fetch what we need
       try {
-        const todayAppointments = await appointmentsService.getTodayAppointments();
-        setAppointments(todayAppointments);
+        // Fetch only today's appointments first
+        const todayAppointmentsRaw = await appointmentsService.getTodayAppointments();
+        
+        // CLIENT-SIDE VALIDATION: Filter to ensure we only show today's appointments
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        
+        const todayAppointments = todayAppointmentsRaw.filter(apt => {
+          const aptDate = new Date(apt.appointmentDate);
+          return aptDate >= startOfToday && aptDate < endOfToday;
+        });
+        
+        // Decide what to show based on today's appointments
+        if (todayAppointments.length > 0) {
+          setAppointments(todayAppointments);
+          setAppointmentsSectionTitle(`Today's Appointments`);
+          setAppointmentsSubtitle(null);
+        } else {
+          // No appointments today, check for future appointments (limited to 5)
+          const futureAppointmentsRaw = await appointmentsService.getFutureAppointments(5);
+          
+          // CLIENT-SIDE VALIDATION: Filter to ensure only future appointments (after today)
+          const futureAppointments = futureAppointmentsRaw.filter(apt => {
+            const aptDate = new Date(apt.appointmentDate);
+            return aptDate >= endOfToday; // Must be tomorrow or later
+          });
+          
+          if (futureAppointments.length > 0) {
+            setAppointments(futureAppointments);
+            setAppointmentsSectionTitle('Next Appointments');
+            // Show when the next appointment is
+            const nextApt = futureAppointments[0];
+            const nextDate = new Date(nextApt.appointmentDate);
+            const daysUntil = Math.ceil((nextDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24));
+            const dateStr = formatNextAppointmentDate(nextDate, daysUntil);
+            setAppointmentsSubtitle(`Next appointment: ${dateStr}`);
+          } else {
+            // No future appointments, check for past incomplete (limited to 5)
+            const pastIncompleteAppointmentsRaw = await appointmentsService.getPastIncompleteAppointments(5);
+            
+            // CLIENT-SIDE VALIDATION: Filter to ensure only past incomplete appointments (before today, not COMPLETED/CANCELED)
+            const pastIncompleteAppointments = pastIncompleteAppointmentsRaw.filter(apt => {
+              const aptDate = new Date(apt.appointmentDate);
+              return aptDate < startOfToday && apt.status !== 'COMPLETED' && apt.status !== 'CANCELED';
+            });
+            
+            if (pastIncompleteAppointments.length > 0) {
+              // Get total count of incomplete appointments
+              const totalIncomplete = await appointmentsService.getIncompleteAppointmentsCount();
+              setAppointments(pastIncompleteAppointments);
+              setAppointmentsSectionTitle('Previous Appointments');
+              setAppointmentsSubtitle(`${totalIncomplete} incomplete appointment${totalIncomplete > 1 ? 's' : ''}`);
+            } else {
+              // No appointments at all
+              setAppointments([]);
+              setAppointmentsSectionTitle('Today\'s Appointments');
+              setAppointmentsSubtitle(null);
+            }
+          }
+        }
+        
         setAppointmentsEnabled(true);
-      } catch (error: any) {
+      } catch (_error: any) {
         // Module might not be enabled - this is OK
-        if (error.message?.includes('MODULE_APPOINTMENTS')) {
+        if (_error.message?.includes('MODULE_APPOINTMENTS')) {
           setAppointmentsEnabled(false);
         }
       }
@@ -62,7 +124,7 @@ const DashboardScreen = observer(() => {
     try {
       const newStatus = value ? 'ONLINE' : 'OFFLINE';
       await chatStore.updateAgentStatus(newStatus);
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to update status');
     }
   };
@@ -71,6 +133,11 @@ const DashboardScreen = observer(() => {
   const openChatsCount = chatStore.conversations.filter((c) => c.status === 'OPEN').length;
   const claimedChatsCount = chatStore.claimedChatsCount;
   const requiresAttentionCount = chatStore.escalationCount;
+
+  const handleAppointmentPress = () => {
+    // Navigate to Appointments tab
+    navigation.navigate('Appointments');
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -147,20 +214,28 @@ const DashboardScreen = observer(() => {
       {appointmentsEnabled && (
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
-            <Icon name="calendar" size={20} color="#1890ff" style={{ marginRight: 8, marginTop: -2 }} />
-            <Text style={styles.cardTitle}>Today's Appointments ({appointments.length})</Text>
+            <Icon name="calendar" size={20} color="#1890ff" style={styles.cardTitleIcon} />
+            <Text style={styles.cardTitle}>{appointmentsSectionTitle} ({appointments.length})</Text>
           </View>
+          {appointmentsSubtitle && (
+            <Text style={styles.appointmentsSectionSubtitle}>{appointmentsSubtitle}</Text>
+          )}
           {appointments.length === 0 ? (
             <>
-              <Text style={styles.placeholderText}>No appointments scheduled for today</Text>
+              <Text style={styles.placeholderText}>No appointments scheduled</Text>
               <Text style={styles.placeholderSubtext}>
                 Appointments will appear here when customers book through AI
               </Text>
             </>
           ) : (
             <View style={styles.appointmentsList}>
+              {/* Show max 5 appointments on dashboard for overview */}
               {appointments.slice(0, 5).map((apt) => (
-                <View key={apt.id} style={styles.appointmentItem}>
+                <TouchableOpacity 
+                  key={apt.id} 
+                  style={styles.appointmentItem}
+                  onPress={handleAppointmentPress}
+                  activeOpacity={0.7}>
                   <View style={styles.appointmentHeader}>
                     <Text style={styles.appointmentCustomer}>{apt.customerName}</Text>
                     <View
@@ -175,12 +250,12 @@ const DashboardScreen = observer(() => {
                     {apt.service?.name || 'N/A'} {apt.service?.price ? `- $${apt.service.price}` : ''}
                   </Text>
                   <View style={styles.appointmentTimeRow}>
-                    <Icon name="time-outline" size={16} color="#666" />
+                    <Icon name="calendar-outline" size={16} color="#666" />
                     <Text style={styles.appointmentTime}>
-                      {formatAppointmentTime(apt.appointmentDate)}
+                      {formatAppointmentDateTime(apt.appointmentDate)}
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
@@ -227,15 +302,52 @@ const getStatusColor = (status: string): string => {
 };
 
 /**
- * Format appointment time
+ * Format appointment date and time
  */
-const formatAppointmentTime = (dateString: string): string => {
+const formatAppointmentDateTime = (dateString: string): string => {
   const date = new Date(dateString);
-  return date.toLocaleTimeString('en-US', {
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  const isToday = date.toDateString() === today.toDateString();
+  const isTomorrow = date.toDateString() === tomorrow.toDateString();
+  
+  const timeStr = date.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
   });
+  
+  if (isToday) {
+    return `Today at ${timeStr}`;
+  } else if (isTomorrow) {
+    return `Tomorrow at ${timeStr}`;
+  } else {
+    const dateStr = date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+    return `${dateStr} at ${timeStr}`;
+  }
+};
+
+/**
+ * Format next appointment date for subtitle
+ */
+const formatNextAppointmentDate = (date: Date, daysUntil: number): string => {
+  if (daysUntil === 1) {
+    return 'Tomorrow';
+  } else if (daysUntil <= 7) {
+    return date.toLocaleDateString('en-US', { weekday: 'long' });
+  } else {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+    });
+  }
 };
 
 const styles = StyleSheet.create({
@@ -295,6 +407,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
+  },
+  cardTitleIcon: {
+    marginRight: 8,
+    marginTop: -2,
+  },
+  appointmentsSectionSubtitle: {
+    fontSize: 13,
+    color: '#1890ff',
+    marginTop: 4,
+    marginBottom: 8,
+    fontWeight: '500',
   },
   statusText: {
     fontSize: 20,
