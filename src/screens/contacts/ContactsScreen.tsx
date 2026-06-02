@@ -143,11 +143,8 @@ const ContactsScreen = () => {
         conversationId = result.conversationId;
       }
       
-      // Navigate to create ticket screen
-      (navigation as any).navigate('ChatStack', {
-        screen: 'CreateTicket',
-        params: { conversationId },
-      });
+      // Navigate to create ticket screen within Contacts stack
+      navigation.navigate('CreateTicket', { conversationId });
     } catch (error: any) {
       console.error('Failed to create ticket:', error);
       Alert.alert('Error', 'Failed to create ticket');

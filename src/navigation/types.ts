@@ -28,6 +28,7 @@ export type ContactsStackParamList = {
   ContactDetail: { contact: Contact };
   ContactConversations: { contactId: string; contactName: string; conversations: any[] };
   ContactTickets: { contactId: string; contactName: string; tickets: any[] };
+  CreateTicket: { conversationId: string };
 };
 
 // App Navigator Params (Bottom Tabs)

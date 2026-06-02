@@ -13,6 +13,7 @@ import ContactsScreen from '../screens/contacts/ContactsScreen';
 import ContactDetailScreen from '../screens/contacts/ContactDetailScreen';
 import ContactConversationsScreen from '../screens/contacts/ContactConversationsScreen';
 import ContactTicketsScreen from '../screens/contacts/ContactTicketsScreen';
+import CreateTicketScreen from '../screens/ticket/CreateTicketScreen';
 
 const Stack = createStackNavigator<ContactsStackParamList>();
 
@@ -54,6 +55,15 @@ const ContactsNavigator = () => {
         options={{
           headerShown: true,
           headerTitle: 'Ticket History',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="CreateTicket"
+        component={CreateTicketScreen}
+        options={{
+          headerShown: true,
+          headerTitle: 'Create Ticket',
           headerBackTitle: 'Back',
         }}
       />
