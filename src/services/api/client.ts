@@ -19,24 +19,29 @@ const apiClient: AxiosInstance = axios.create({
 
 // Request interceptor: Add JWT token
 apiClient.interceptors.request.use(
-  async (config) => {
+  async config => {
     const token = await secureStorage.getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     } else {
-      console.log('🔓 API Request:', config.method?.toUpperCase(), config.url, '(no token)');
+      console.log(
+        '🔓 API Request:',
+        config.method?.toUpperCase(),
+        config.url,
+        '(no token)',
+      );
     }
     return config;
   },
-  (error) => {
+  error => {
     console.error('❌ Request error:', error);
     return Promise.reject(error);
-  }
+  },
 );
 
 // Response interceptor: Handle errors
 apiClient.interceptors.response.use(
-  (response) => response,
+  response => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as any;
 
@@ -46,11 +51,11 @@ apiClient.interceptors.response.use(
 
       // Clear token and trigger logout
       await secureStorage.removeToken();
-      
+
       // Emit logout event (will be handled by AuthStore)
       // You can use EventEmitter or a global callback here
       console.log('Token expired - redirecting to login');
-      
+
       // Don't retry the request
       return Promise.reject(error);
     }
@@ -66,7 +71,8 @@ apiClient.interceptors.response.use(
 
     // Handle other errors
     const errorData = error.response?.data;
-    const errorMessage = errorData?.error || errorData?.message || error.message;
+    const errorMessage =
+      errorData?.error || errorData?.message || error.message;
     console.error('API error:', errorMessage);
 
     return Promise.reject({
@@ -75,7 +81,7 @@ apiClient.interceptors.response.use(
       data: errorData,
       originalError: error,
     });
-  }
+  },
 );
 
 export default apiClient;

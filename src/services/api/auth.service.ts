@@ -50,21 +50,24 @@ class AuthService {
       passwordLength: credentials.password.length,
       hasWhitespace: credentials.password !== credentials.password.trim(),
     });
-    
+
     const response = await apiClient.post('/v1/auth/login', credentials);
-    
+
     console.log('✅ Login response:', {
       hasToken: !!response.data.token,
       requiresTwoFactor: response.data.requiresTwoFactor,
     });
-    
+
     return response.data;
   }
 
   /**
    * Complete 2FA login
    */
-  async completeTwoFactor(userId: string, code: string): Promise<LoginResponse> {
+  async completeTwoFactor(
+    userId: string,
+    code: string,
+  ): Promise<LoginResponse> {
     const response = await apiClient.post('/v1/auth/login/2fa-complete', {
       userId,
       code,

@@ -25,7 +25,10 @@ interface RouteParams {
   contact: Contact;
 }
 
-type NavigationProp = StackNavigationProp<ContactsStackParamList, 'ContactDetail'>;
+type NavigationProp = StackNavigationProp<
+  ContactsStackParamList,
+  'ContactDetail'
+>;
 
 const ContactDetailScreen = () => {
   const navigation = useNavigation<NavigationProp>();
@@ -34,14 +37,20 @@ const ContactDetailScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const displayName = contact.name || contact.phoneNumber;
-  const lastContactDate = new Date(contact.lastContactedAt).toLocaleDateString();
-  const firstContactDate = new Date(contact.firstContactedAt).toLocaleDateString();
+  const lastContactDate = new Date(
+    contact.lastContactedAt,
+  ).toLocaleDateString();
+  const firstContactDate = new Date(
+    contact.firstContactedAt,
+  ).toLocaleDateString();
 
   // Start new conversation
   const handleStartChat = async () => {
     try {
       setIsLoading(true);
-      const { conversationId } = await contactService.startConversation(contact.phoneNumber);
+      const { conversationId } = await contactService.startConversation(
+        contact.phoneNumber,
+      );
       // Navigate to ChatStack in parent navigator
       (navigation as any).navigate('ChatStack', {
         screen: 'ChatDetail',
@@ -49,7 +58,10 @@ const ContactDetailScreen = () => {
       });
     } catch (error: any) {
       console.error('Failed to start conversation:', error);
-      Alert.alert('Error', error.response?.data?.error || 'Failed to start conversation');
+      Alert.alert(
+        'Error',
+        error.response?.data?.error || 'Failed to start conversation',
+      );
     } finally {
       setIsLoading(false);
     }
@@ -59,10 +71,16 @@ const ContactDetailScreen = () => {
   const handleViewChats = async () => {
     try {
       setIsLoading(true);
-      const conversations = await contactService.getContactConversations(contact.id, contact.phoneNumber);
-      
+      const conversations = await contactService.getContactConversations(
+        contact.id,
+        contact.phoneNumber,
+      );
+
       if (conversations.length === 0) {
-        Alert.alert('No Conversations', 'This contact has no conversation history.');
+        Alert.alert(
+          'No Conversations',
+          'This contact has no conversation history.',
+        );
       } else {
         // Navigate to conversation list with filter
         navigation.navigate('ContactConversations', {
@@ -84,7 +102,7 @@ const ContactDetailScreen = () => {
     try {
       setIsLoading(true);
       const tickets = await contactService.getContactTickets(contact.id);
-      
+
       if (tickets.length === 0) {
         Alert.alert('No Tickets', 'This contact has no tickets.');
       } else {
@@ -106,7 +124,10 @@ const ContactDetailScreen = () => {
   // Create ticket
   const handleCreateTicket = () => {
     // TODO: Navigate to create ticket screen
-    Alert.alert('Coming Soon', 'Create ticket functionality will be available soon');
+    Alert.alert(
+      'Coming Soon',
+      'Create ticket functionality will be available soon',
+    );
   };
 
   return (
@@ -121,11 +142,18 @@ const ContactDetailScreen = () => {
           </View>
           <Text style={styles.contactName}>{displayName}</Text>
           <Text style={styles.contactPhone}>{contact.phoneNumber}</Text>
-          {contact.email && <Text style={styles.contactEmail}>{contact.email}</Text>}
-          
+          {contact.email && (
+            <Text style={styles.contactEmail}>{contact.email}</Text>
+          )}
+
           {contact.isVip && (
             <View style={styles.vipBadge}>
-              <Icon name="star" size={16} color="#faad14" style={{ marginRight: 4 }} />
+              <Icon
+                name="star"
+                size={16}
+                color="#faad14"
+                style={{ marginRight: 4 }}
+              />
               <Text style={styles.vipText}>VIP Customer</Text>
             </View>
           )}
@@ -136,16 +164,28 @@ const ContactDetailScreen = () => {
           <TouchableOpacity
             style={[styles.actionButton, styles.primaryButton]}
             onPress={handleStartChat}
-            disabled={isLoading}>
-            <Icon name="chatbubbles" size={20} color="#fff" style={styles.actionButtonIcon} />
+            disabled={isLoading}
+          >
+            <Icon
+              name="chatbubbles"
+              size={20}
+              color="#fff"
+              style={styles.actionButtonIcon}
+            />
             <Text style={styles.actionButtonText}>Start Chat</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.actionButton, styles.secondaryButton]}
             onPress={handleCreateTicket}
-            disabled={isLoading}>
-            <Icon name="ticket" size={20} color="#fff" style={styles.actionButtonIcon} />
+            disabled={isLoading}
+          >
+            <Icon
+              name="ticket"
+              size={20}
+              color="#fff"
+              style={styles.actionButtonIcon}
+            />
             <Text style={styles.actionButtonText}>Create Ticket</Text>
           </TouchableOpacity>
         </View>
@@ -155,13 +195,20 @@ const ContactDetailScreen = () => {
           <TouchableOpacity
             style={styles.historyButton}
             onPress={handleViewChats}
-            disabled={isLoading}>
+            disabled={isLoading}
+          >
             <View style={styles.historyButtonHeader}>
-              <Icon name="chatbubbles" size={24} color="#1890ff" style={styles.historyButtonIcon} />
+              <Icon
+                name="chatbubbles"
+                size={24}
+                color="#1890ff"
+                style={styles.historyButtonIcon}
+              />
               <View style={styles.historyButtonInfo}>
                 <Text style={styles.historyButtonTitle}>Chat History</Text>
                 <Text style={styles.historyButtonSubtitle}>
-                  {contact.totalConversations} conversation{contact.totalConversations !== 1 ? 's' : ''}
+                  {contact.totalConversations} conversation
+                  {contact.totalConversations !== 1 ? 's' : ''}
                 </Text>
               </View>
             </View>
@@ -171,12 +218,20 @@ const ContactDetailScreen = () => {
           <TouchableOpacity
             style={styles.historyButton}
             onPress={handleViewTickets}
-            disabled={isLoading}>
+            disabled={isLoading}
+          >
             <View style={styles.historyButtonHeader}>
-              <Icon name="ticket" size={24} color="#1890ff" style={styles.historyButtonIcon} />
+              <Icon
+                name="ticket"
+                size={24}
+                color="#1890ff"
+                style={styles.historyButtonIcon}
+              />
               <View style={styles.historyButtonInfo}>
                 <Text style={styles.historyButtonTitle}>Ticket History</Text>
-                <Text style={styles.historyButtonSubtitle}>View all tickets</Text>
+                <Text style={styles.historyButtonSubtitle}>
+                  View all tickets
+                </Text>
               </View>
             </View>
             <Text style={styles.historyButtonArrow}>›</Text>
@@ -186,7 +241,7 @@ const ContactDetailScreen = () => {
         {/* Details Card */}
         <View style={styles.detailsCard}>
           <Text style={styles.sectionTitle}>Contact Information</Text>
-          
+
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Type:</Text>
             <Text style={styles.detailValue}>{contact.customerType}</Text>
@@ -194,7 +249,9 @@ const ContactDetailScreen = () => {
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Channels:</Text>
-            <Text style={styles.detailValue}>{contact.channels.join(', ')}</Text>
+            <Text style={styles.detailValue}>
+              {contact.channels.join(', ')}
+            </Text>
           </View>
 
           <View style={styles.detailRow}>
@@ -210,14 +267,18 @@ const ContactDetailScreen = () => {
           {contact.preferredLanguage && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Language:</Text>
-              <Text style={styles.detailValue}>{contact.preferredLanguage}</Text>
+              <Text style={styles.detailValue}>
+                {contact.preferredLanguage}
+              </Text>
             </View>
           )}
 
           {contact.totalSpent !== null && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Total Spent:</Text>
-              <Text style={styles.detailValue}>${contact.totalSpent.toFixed(2)}</Text>
+              <Text style={styles.detailValue}>
+                ${contact.totalSpent.toFixed(2)}
+              </Text>
             </View>
           )}
         </View>
@@ -374,8 +435,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  historyButtonIcon: {
-  },
+  historyButtonIcon: {},
   historyButtonInfo: {
     flex: 1,
   },

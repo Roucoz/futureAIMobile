@@ -39,11 +39,12 @@ const AppNavigator = () => {
         tabBarLabelStyle: {
           fontSize: 12,
         },
-      }}>
+      }}
+    >
       <Tab.Screen
         name="Dashboard"
         component={DashboardScreen}
-        options={{ 
+        options={{
           title: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
             <Icon name="stats-chart" size={size} color={color} />
@@ -53,7 +54,7 @@ const AppNavigator = () => {
       <Tab.Screen
         name="ChatStack"
         component={ChatNavigator}
-        options={{ 
+        options={{
           title: 'Chats',
           tabBarIcon: ({ color, size }) => (
             <Icon name="chatbubbles" size={size} color={color} />
@@ -63,7 +64,7 @@ const AppNavigator = () => {
       <Tab.Screen
         name="Appointments"
         component={AppointmentsScreen}
-        options={{ 
+        options={{
           title: 'Appointments',
           tabBarIcon: ({ color, size }) => (
             <Icon name="calendar" size={size} color={color} />
@@ -73,17 +74,17 @@ const AppNavigator = () => {
       <Tab.Screen
         name="ContactsStack"
         component={ContactsNavigator}
-        options={{ 
+        options={{
           title: 'Contacts',
           tabBarIcon: ({ color, size }) => (
             <Icon name="people" size={size} color={color} />
           ),
         }}
       />
-      <Tab.Screen 
-        name="Profile" 
+      <Tab.Screen
+        name="Profile"
         component={ProfileScreen}
-        options={{ 
+        options={{
           title: 'Profile',
           tabBarIcon: ({ color, size }) => (
             <Icon name="person" size={size} color={color} />

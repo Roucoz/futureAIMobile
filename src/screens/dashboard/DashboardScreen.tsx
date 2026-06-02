@@ -4,7 +4,16 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, RefreshControl, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Switch,
+  RefreshControl,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
 import { useNavigation } from '@react-navigation/native';
@@ -12,9 +21,15 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { AppTabParamList } from '../../navigation/types';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth, useChat } from '../../stores';
-import { appointmentsService, Appointment } from '../../services/api/appointments.service';
+import {
+  appointmentsService,
+  Appointment,
+} from '../../services/api/appointments.service';
 
-type DashboardNavigationProp = BottomTabNavigationProp<AppTabParamList, 'Dashboard'>;
+type DashboardNavigationProp = BottomTabNavigationProp<
+  AppTabParamList,
+  'Dashboard'
+>;
 
 const DashboardScreen = observer(() => {
   const navigation = useNavigation<DashboardNavigationProp>();
@@ -23,32 +38,45 @@ const DashboardScreen = observer(() => {
   const [refreshing, setRefreshing] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [appointmentsEnabled, setAppointmentsEnabled] = useState(false);
-  const [appointmentsSectionTitle, setAppointmentsSectionTitle] = useState('Today\'s Appointments');
-  const [appointmentsSubtitle, setAppointmentsSubtitle] = useState<string | null>(null);
+  const [appointmentsSectionTitle, setAppointmentsSectionTitle] = useState(
+    "Today's Appointments",
+  );
+  const [appointmentsSubtitle, setAppointmentsSubtitle] = useState<
+    string | null
+  >(null);
 
   const loadDashboardData = useCallback(async () => {
     try {
       // Fetch current agent status first
       await chatStore.fetchAgentStatus();
-      
+
       // Load conversations
       await chatStore.loadConversations('OPEN');
-      
+
       // Load appointments (if module enabled) - OPTIMIZED: Only fetch what we need
       try {
         // Fetch only today's appointments first
-        const todayAppointmentsRaw = await appointmentsService.getTodayAppointments();
-        
+        const todayAppointmentsRaw =
+          await appointmentsService.getTodayAppointments();
+
         // CLIENT-SIDE VALIDATION: Filter to ensure we only show today's appointments
         const now = new Date();
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-        
+        const startOfToday = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+        );
+        const endOfToday = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() + 1,
+        );
+
         const todayAppointments = todayAppointmentsRaw.filter(apt => {
           const aptDate = new Date(apt.appointmentDate);
           return aptDate >= startOfToday && aptDate < endOfToday;
         });
-        
+
         // Decide what to show based on today's appointments
         if (todayAppointments.length > 0) {
           setAppointments(todayAppointments);
@@ -56,48 +84,63 @@ const DashboardScreen = observer(() => {
           setAppointmentsSubtitle(null);
         } else {
           // No appointments today, check for future appointments (limited to 5)
-          const futureAppointmentsRaw = await appointmentsService.getFutureAppointments(5);
-          
+          const futureAppointmentsRaw =
+            await appointmentsService.getFutureAppointments(5);
+
           // CLIENT-SIDE VALIDATION: Filter to ensure only future appointments (after today)
           const futureAppointments = futureAppointmentsRaw.filter(apt => {
             const aptDate = new Date(apt.appointmentDate);
             return aptDate >= endOfToday; // Must be tomorrow or later
           });
-          
+
           if (futureAppointments.length > 0) {
             setAppointments(futureAppointments);
             setAppointmentsSectionTitle('Next Appointments');
             // Show when the next appointment is
             const nextApt = futureAppointments[0];
             const nextDate = new Date(nextApt.appointmentDate);
-            const daysUntil = Math.ceil((nextDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24));
+            const daysUntil = Math.ceil(
+              (nextDate.getTime() - startOfToday.getTime()) /
+                (1000 * 60 * 60 * 24),
+            );
             const dateStr = formatNextAppointmentDate(nextDate, daysUntil);
             setAppointmentsSubtitle(`Next appointment: ${dateStr}`);
           } else {
             // No future appointments, check for past incomplete (limited to 5)
-            const pastIncompleteAppointmentsRaw = await appointmentsService.getPastIncompleteAppointments(5);
-            
+            const pastIncompleteAppointmentsRaw =
+              await appointmentsService.getPastIncompleteAppointments(5);
+
             // CLIENT-SIDE VALIDATION: Filter to ensure only past incomplete appointments (before today, not COMPLETED/CANCELED)
-            const pastIncompleteAppointments = pastIncompleteAppointmentsRaw.filter(apt => {
-              const aptDate = new Date(apt.appointmentDate);
-              return aptDate < startOfToday && apt.status !== 'COMPLETED' && apt.status !== 'CANCELED';
-            });
-            
+            const pastIncompleteAppointments =
+              pastIncompleteAppointmentsRaw.filter(apt => {
+                const aptDate = new Date(apt.appointmentDate);
+                return (
+                  aptDate < startOfToday &&
+                  apt.status !== 'COMPLETED' &&
+                  apt.status !== 'CANCELED'
+                );
+              });
+
             if (pastIncompleteAppointments.length > 0) {
               // Get total count of incomplete appointments
-              const totalIncomplete = await appointmentsService.getIncompleteAppointmentsCount();
+              const totalIncomplete =
+                await appointmentsService.getIncompleteAppointmentsCount();
               setAppointments(pastIncompleteAppointments);
               setAppointmentsSectionTitle('Previous Appointments');
-              setAppointmentsSubtitle(`${totalIncomplete} incomplete appointment${totalIncomplete > 1 ? 's' : ''}`);
+              setAppointmentsSubtitle(
+                `${totalIncomplete} incomplete appointment${
+                  totalIncomplete > 1 ? 's' : ''
+                }`,
+              );
             } else {
               // No appointments at all
               setAppointments([]);
-              setAppointmentsSectionTitle('Today\'s Appointments');
+              setAppointmentsSectionTitle("Today's Appointments");
               setAppointmentsSubtitle(null);
             }
           }
         }
-        
+
         setAppointmentsEnabled(true);
       } catch (_error: any) {
         // Module might not be enabled - this is OK
@@ -130,7 +173,9 @@ const DashboardScreen = observer(() => {
   };
 
   const isOnline = chatStore.currentAgentStatus === 'ONLINE';
-  const openChatsCount = chatStore.conversations.filter((c) => c.status === 'OPEN').length;
+  const openChatsCount = chatStore.conversations.filter(
+    c => c.status === 'OPEN',
+  ).length;
   const claimedChatsCount = chatStore.claimedChatsCount;
   const requiresAttentionCount = chatStore.escalationCount;
 
@@ -143,139 +188,206 @@ const DashboardScreen = observer(() => {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
         style={styles.container}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}>
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
-        <Text style={styles.headerTitle}>Dashboard</Text>
-        <Text style={styles.headerSubtitle}>Welcome, {authStore.user?.fullName}</Text>
-      </View>
-
-      {/* Status Card */}
-      <View style={[styles.card, styles.statusCard]}>
-        <View style={styles.statusHeader}>
-          <View>
-            <Text style={styles.cardTitle}>Agent Status</Text>
-            <Text style={styles.statusText}>{isOnline ? 'Online' : 'Offline'}</Text>
-          </View>
-          <Switch
-            value={isOnline}
-            onValueChange={handleStatusToggle}
-            trackColor={{ false: '#d9d9d9', true: '#52c41a' }}
-            thumbColor="#fff"
-            ios_backgroundColor="#d9d9d9"
-            disabled={chatStore.isStatusLoading}
-          />
+          <Text style={styles.headerTitle}>Dashboard</Text>
+          <Text style={styles.headerSubtitle}>
+            Welcome, {authStore.user?.fullName}
+          </Text>
         </View>
-        <Text style={styles.statusDescription}>
-          {isOnline
-            ? 'You are available to receive chats'
-            : 'You will not receive new chats'}
-        </Text>
-      </View>
 
-      {/* KPI Cards Grid */}
-      <View style={styles.kpiGrid}>
-        {/* Open Chats */}
-        <TouchableOpacity
-          style={[styles.kpiCard, styles.kpiCardBlue]}
-          onPress={() => (navigation as any).navigate('ChatStack', { screen: 'ConversationList' })}>
-          <Text style={styles.kpiValue}>{openChatsCount}</Text>
-          <Text style={styles.kpiLabel}>Open Chats</Text>
-          <Icon name="chatbubbles" size={32} color="#fff" style={styles.kpiIcon} />
-        </TouchableOpacity>
-
-        {/* Claimed Chats */}
-        <TouchableOpacity
-          style={[styles.kpiCard, styles.kpiCardGreen]}
-          onPress={() => (navigation as any).navigate('ChatStack', { screen: 'ConversationList' })}>
-          <Text style={styles.kpiValue}>{claimedChatsCount}</Text>
-          <Text style={styles.kpiLabel}>Claimed by You</Text>
-          <Icon name="person" size={32} color="#fff" style={styles.kpiIcon} />
-        </TouchableOpacity>
-
-        {/* Requires Attention */}
-        <TouchableOpacity
-          style={[styles.kpiCard, styles.kpiCardOrange]}
-          onPress={() => (navigation as any).navigate('ChatStack', { screen: 'ConversationList' })}>
-          <Text style={styles.kpiValue}>{requiresAttentionCount}</Text>
-          <Text style={styles.kpiLabel}>Needs Attention</Text>
-          <Icon name="warning" size={32} color="#fff" style={styles.kpiIcon} />
-        </TouchableOpacity>
-
-        {/* AI Disabled */}
-        <TouchableOpacity style={[styles.kpiCard, styles.kpiCardPurple]}>
-          <Text style={styles.kpiValue}>{chatStore.aiDisabledCount}</Text>
-          <Text style={styles.kpiLabel}>AI Disabled</Text>
-          <Icon name="pause-circle" size={32} color="#fff" style={styles.kpiIcon} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Upcoming Appointments */}
-      {appointmentsEnabled && (
-        <View style={styles.card}>
-          <View style={styles.cardTitleRow}>
-            <Icon name="calendar" size={20} color="#1890ff" style={styles.cardTitleIcon} />
-            <Text style={styles.cardTitle}>{appointmentsSectionTitle} ({appointments.length})</Text>
-          </View>
-          {appointmentsSubtitle && (
-            <Text style={styles.appointmentsSectionSubtitle}>{appointmentsSubtitle}</Text>
-          )}
-          {appointments.length === 0 ? (
-            <>
-              <Text style={styles.placeholderText}>No appointments scheduled</Text>
-              <Text style={styles.placeholderSubtext}>
-                Appointments will appear here when customers book through AI
+        {/* Status Card */}
+        <View style={[styles.card, styles.statusCard]}>
+          <View style={styles.statusHeader}>
+            <View>
+              <Text style={styles.cardTitle}>Agent Status</Text>
+              <Text style={styles.statusText}>
+                {isOnline ? 'Online' : 'Offline'}
               </Text>
-            </>
-          ) : (
-            <View style={styles.appointmentsList}>
-              {/* Show max 5 appointments on dashboard for overview */}
-              {appointments.slice(0, 5).map((apt) => (
-                <TouchableOpacity 
-                  key={apt.id} 
-                  style={styles.appointmentItem}
-                  onPress={handleAppointmentPress}
-                  activeOpacity={0.7}>
-                  <View style={styles.appointmentHeader}>
-                    <Text style={styles.appointmentCustomer}>{apt.customerName}</Text>
-                    <View
-                      style={[
-                        styles.appointmentStatusBadge,
-                        { backgroundColor: getStatusColor(apt.status) },
-                      ]}>
-                      <Text style={styles.appointmentStatusText}>{apt.status}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.appointmentService}>
-                    {apt.service?.name || 'N/A'} {apt.service?.price ? `- $${apt.service.price}` : ''}
-                  </Text>
-                  <View style={styles.appointmentTimeRow}>
-                    <Icon name="calendar-outline" size={16} color="#666" />
-                    <Text style={styles.appointmentTime}>
-                      {formatAppointmentDateTime(apt.appointmentDate)}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
             </View>
-          )}
-        </View>
-      )}
-
-      {/* Quick Actions */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Quick Actions</Text>
-        <TouchableOpacity
-          style={styles.quickAction}
-          onPress={() => (navigation as any).navigate('ChatStack', { screen: 'ConversationList' })}>
-          <Icon name="chatbubbles" size={24} color="#1890ff" style={styles.quickActionIcon} />
-          <View style={styles.quickActionContent}>
-            <Text style={styles.quickActionTitle}>View All Chats</Text>
-            <Text style={styles.quickActionSubtitle}>Manage customer conversations</Text>
+            <Switch
+              value={isOnline}
+              onValueChange={handleStatusToggle}
+              trackColor={{ false: '#d9d9d9', true: '#52c41a' }}
+              thumbColor="#fff"
+              ios_backgroundColor="#d9d9d9"
+              disabled={chatStore.isStatusLoading}
+            />
           </View>
-          <Text style={styles.quickActionArrow}>›</Text>
-        </TouchableOpacity>
-      </View>
+          <Text style={styles.statusDescription}>
+            {isOnline
+              ? 'You are available to receive chats'
+              : 'You will not receive new chats'}
+          </Text>
+        </View>
+
+        {/* KPI Cards Grid */}
+        <View style={styles.kpiGrid}>
+          {/* Open Chats */}
+          <TouchableOpacity
+            style={[styles.kpiCard, styles.kpiCardBlue]}
+            onPress={() =>
+              (navigation as any).navigate('ChatStack', {
+                screen: 'ConversationList',
+              })
+            }
+          >
+            <Text style={styles.kpiValue}>{openChatsCount}</Text>
+            <Text style={styles.kpiLabel}>Open Chats</Text>
+            <Icon
+              name="chatbubbles"
+              size={32}
+              color="#fff"
+              style={styles.kpiIcon}
+            />
+          </TouchableOpacity>
+
+          {/* Claimed Chats */}
+          <TouchableOpacity
+            style={[styles.kpiCard, styles.kpiCardGreen]}
+            onPress={() =>
+              (navigation as any).navigate('ChatStack', {
+                screen: 'ConversationList',
+              })
+            }
+          >
+            <Text style={styles.kpiValue}>{claimedChatsCount}</Text>
+            <Text style={styles.kpiLabel}>Claimed by You</Text>
+            <Icon name="person" size={32} color="#fff" style={styles.kpiIcon} />
+          </TouchableOpacity>
+
+          {/* Requires Attention */}
+          <TouchableOpacity
+            style={[styles.kpiCard, styles.kpiCardOrange]}
+            onPress={() =>
+              (navigation as any).navigate('ChatStack', {
+                screen: 'ConversationList',
+              })
+            }
+          >
+            <Text style={styles.kpiValue}>{requiresAttentionCount}</Text>
+            <Text style={styles.kpiLabel}>Needs Attention</Text>
+            <Icon
+              name="warning"
+              size={32}
+              color="#fff"
+              style={styles.kpiIcon}
+            />
+          </TouchableOpacity>
+
+          {/* AI Disabled */}
+          <TouchableOpacity style={[styles.kpiCard, styles.kpiCardPurple]}>
+            <Text style={styles.kpiValue}>{chatStore.aiDisabledCount}</Text>
+            <Text style={styles.kpiLabel}>AI Disabled</Text>
+            <Icon
+              name="pause-circle"
+              size={32}
+              color="#fff"
+              style={styles.kpiIcon}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Upcoming Appointments */}
+        {appointmentsEnabled && (
+          <View style={styles.card}>
+            <View style={styles.cardTitleRow}>
+              <Icon
+                name="calendar"
+                size={20}
+                color="#1890ff"
+                style={styles.cardTitleIcon}
+              />
+              <Text style={styles.cardTitle}>
+                {appointmentsSectionTitle} ({appointments.length})
+              </Text>
+            </View>
+            {appointmentsSubtitle && (
+              <Text style={styles.appointmentsSectionSubtitle}>
+                {appointmentsSubtitle}
+              </Text>
+            )}
+            {appointments.length === 0 ? (
+              <>
+                <Text style={styles.placeholderText}>
+                  No appointments scheduled
+                </Text>
+                <Text style={styles.placeholderSubtext}>
+                  Appointments will appear here when customers book through AI
+                </Text>
+              </>
+            ) : (
+              <View style={styles.appointmentsList}>
+                {/* Show max 5 appointments on dashboard for overview */}
+                {appointments.slice(0, 5).map(apt => (
+                  <TouchableOpacity
+                    key={apt.id}
+                    style={styles.appointmentItem}
+                    onPress={handleAppointmentPress}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.appointmentHeader}>
+                      <Text style={styles.appointmentCustomer}>
+                        {apt.customerName}
+                      </Text>
+                      <View
+                        style={[
+                          styles.appointmentStatusBadge,
+                          { backgroundColor: getStatusColor(apt.status) },
+                        ]}
+                      >
+                        <Text style={styles.appointmentStatusText}>
+                          {apt.status}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.appointmentService}>
+                      {apt.service?.name || 'N/A'}{' '}
+                      {apt.service?.price ? `- $${apt.service.price}` : ''}
+                    </Text>
+                    <View style={styles.appointmentTimeRow}>
+                      <Icon name="calendar-outline" size={16} color="#666" />
+                      <Text style={styles.appointmentTime}>
+                        {formatAppointmentDateTime(apt.appointmentDate)}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Quick Actions */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Quick Actions</Text>
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={() =>
+              (navigation as any).navigate('ChatStack', {
+                screen: 'ConversationList',
+              })
+            }
+          >
+            <Icon
+              name="chatbubbles"
+              size={24}
+              color="#1890ff"
+              style={styles.quickActionIcon}
+            />
+            <View style={styles.quickActionContent}>
+              <Text style={styles.quickActionTitle}>View All Chats</Text>
+              <Text style={styles.quickActionSubtitle}>
+                Manage customer conversations
+              </Text>
+            </View>
+            <Text style={styles.quickActionArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -309,16 +421,16 @@ const formatAppointmentDateTime = (dateString: string): string => {
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  
+
   const isToday = date.toDateString() === today.toDateString();
   const isTomorrow = date.toDateString() === tomorrow.toDateString();
-  
+
   const timeStr = date.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
   });
-  
+
   if (isToday) {
     return `Today at ${timeStr}`;
   } else if (isTomorrow) {

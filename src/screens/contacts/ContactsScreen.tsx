@@ -21,9 +21,15 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ContactsStackParamList } from '../../navigation/types';
-import contactService, { Contact, GetContactsParams } from '../../services/api/contact.service';
+import contactService, {
+  Contact,
+  GetContactsParams,
+} from '../../services/api/contact.service';
 
-type NavigationProp = StackNavigationProp<ContactsStackParamList, 'ContactsList'>;
+type NavigationProp = StackNavigationProp<
+  ContactsStackParamList,
+  'ContactsList'
+>;
 
 const ContactsScreen = () => {
   const navigation = useNavigation<NavigationProp>();
@@ -34,48 +40,62 @@ const ContactsScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [sortBy, setSortBy] = useState<'lastContactedAt' | 'name' | 'totalConversations'>('lastContactedAt');
+  const [sortBy, setSortBy] = useState<
+    'lastContactedAt' | 'name' | 'totalConversations'
+  >('lastContactedAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  type CustomerType = 'ALL' | 'NEW' | 'REGULAR' | 'VIP' | 'BLOCKED' | 'INACTIVE';
+  type CustomerType =
+    | 'ALL'
+    | 'NEW'
+    | 'REGULAR'
+    | 'VIP'
+    | 'BLOCKED'
+    | 'INACTIVE';
   const [filterType, setFilterType] = useState<CustomerType>('ALL');
-  
+
   // Load contacts
-  const loadContacts = useCallback(async (pageNum: number = 1, append: boolean = false) => {
-    if (!append) {
-      setIsLoading(true);
-    } else {
-      setIsLoadingMore(true);
-    }
-
-    try {
-      const params: GetContactsParams = {
-        page: pageNum,
-        pageSize: 20,
-        sortBy,
-        sortOrder,
-        ...(searchQuery && { search: searchQuery }),
-        ...(filterType !== 'ALL' && { customerType: filterType }),
-      };
-
-      const response = await contactService.getContacts(params);
-      
-      if (append) {
-        setContacts(prev => [...prev, ...response.contacts]);
+  const loadContacts = useCallback(
+    async (pageNum: number = 1, append: boolean = false) => {
+      if (!append) {
+        setIsLoading(true);
       } else {
-        setContacts(response.contacts);
+        setIsLoadingMore(true);
       }
-      
-      setPage(pageNum);
-      setTotalPages(response.totalPages);
-    } catch (error: any) {
-      console.error('Failed to load contacts:', error);
-      Alert.alert('Error', error.response?.data?.error || 'Failed to load contacts');
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-      setIsLoadingMore(false);
-    }
-  }, [sortBy, sortOrder, searchQuery, filterType]);
+
+      try {
+        const params: GetContactsParams = {
+          page: pageNum,
+          pageSize: 20,
+          sortBy,
+          sortOrder,
+          ...(searchQuery && { search: searchQuery }),
+          ...(filterType !== 'ALL' && { customerType: filterType }),
+        };
+
+        const response = await contactService.getContacts(params);
+
+        if (append) {
+          setContacts(prev => [...prev, ...response.contacts]);
+        } else {
+          setContacts(response.contacts);
+        }
+
+        setPage(pageNum);
+        setTotalPages(response.totalPages);
+      } catch (error: any) {
+        console.error('Failed to load contacts:', error);
+        Alert.alert(
+          'Error',
+          error.response?.data?.error || 'Failed to load contacts',
+        );
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+        setIsLoadingMore(false);
+      }
+    },
+    [sortBy, sortOrder, searchQuery, filterType],
+  );
 
   // Initial load
   useEffect(() => {
@@ -114,7 +134,9 @@ const ContactsScreen = () => {
   // Start new conversation
   const handleStartConversation = async (contact: Contact) => {
     try {
-      const { conversationId } = await contactService.startConversation(contact.phoneNumber);
+      const { conversationId } = await contactService.startConversation(
+        contact.phoneNumber,
+      );
       // Navigate to ChatStack in parent navigator
       (navigation as any).navigate('ChatStack', {
         screen: 'ChatDetail',
@@ -122,7 +144,10 @@ const ContactsScreen = () => {
       });
     } catch (error: any) {
       console.error('Failed to start conversation:', error);
-      Alert.alert('Error', error.response?.data?.error || 'Failed to start conversation');
+      Alert.alert(
+        'Error',
+        error.response?.data?.error || 'Failed to start conversation',
+      );
     }
   };
 
@@ -130,8 +155,11 @@ const ContactsScreen = () => {
   const handleCreateTicket = async (contact: Contact) => {
     try {
       // First, check if there's an existing open conversation
-      const conversations = await contactService.getContactConversations(contact.id, contact.phoneNumber);
-      
+      const conversations = await contactService.getContactConversations(
+        contact.id,
+        contact.phoneNumber,
+      );
+
       let conversationId;
       if (conversations.length > 0) {
         // Use the most recent open conversation
@@ -139,10 +167,12 @@ const ContactsScreen = () => {
         conversationId = openConv ? openConv.id : conversations[0].id;
       } else {
         // Create a new conversation
-        const result = await contactService.startConversation(contact.phoneNumber);
+        const result = await contactService.startConversation(
+          contact.phoneNumber,
+        );
         conversationId = result.conversationId;
       }
-      
+
       // Navigate to create ticket screen within Contacts stack
       navigation.navigate('CreateTicket', { conversationId });
     } catch (error: any) {
@@ -154,7 +184,7 @@ const ContactsScreen = () => {
   // Toggle sort order
   const toggleSort = (field: typeof sortBy) => {
     if (sortBy === field) {
-      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortBy(field);
       setSortOrder(field === 'name' ? 'asc' : 'desc');
@@ -168,10 +198,11 @@ const ContactsScreen = () => {
     const channels = item.channels.join(', ');
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.contactCard}
         onPress={() => handleContactPress(item)}
-        activeOpacity={0.7}>
+        activeOpacity={0.7}
+      >
         <View style={styles.contactHeader}>
           <View style={styles.avatarContainer}>
             <Text style={styles.avatarText}>
@@ -188,16 +219,28 @@ const ContactsScreen = () => {
               )}
             </View>
             <Text style={styles.contactPhone}>{item.phoneNumber}</Text>
-            {item.email && <Text style={styles.contactEmail}>{item.email}</Text>}
+            {item.email && (
+              <Text style={styles.contactEmail}>{item.email}</Text>
+            )}
           </View>
         </View>
 
         <View style={styles.contactMeta}>
           <Icon name="call" size={14} color="#666" style={{ marginRight: 4 }} />
           <Text style={styles.metaText}>{channels}</Text>
-          <Icon name="chatbubbles" size={14} color="#666" style={{ marginLeft: 12, marginRight: 4 }} />
+          <Icon
+            name="chatbubbles"
+            size={14}
+            color="#666"
+            style={{ marginLeft: 12, marginRight: 4 }}
+          />
           <Text style={styles.metaText}>{item.totalConversations} chats</Text>
-          <Icon name="calendar" size={14} color="#666" style={{ marginLeft: 12, marginRight: 4 }} />
+          <Icon
+            name="calendar"
+            size={14}
+            color="#666"
+            style={{ marginLeft: 12, marginRight: 4 }}
+          />
           <Text style={styles.metaText}>{lastContactDate}</Text>
         </View>
 
@@ -215,22 +258,34 @@ const ContactsScreen = () => {
         )}
 
         <View style={styles.actionButtons}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionButton}
-            onPress={(e) => {
+            onPress={e => {
               e.stopPropagation();
               handleStartConversation(item);
-            }}>
-            <Icon name="chatbubbles" size={16} color="#1890ff" style={{ marginRight: 4 }} />
+            }}
+          >
+            <Icon
+              name="chatbubbles"
+              size={16}
+              color="#1890ff"
+              style={{ marginRight: 4 }}
+            />
             <Text style={styles.actionButtonText}>Chat</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionButton}
-            onPress={(e) => {
+            onPress={e => {
               e.stopPropagation();
               handleCreateTicket(item);
-            }}>
-            <Icon name="ticket" size={16} color="#1890ff" style={{ marginRight: 4 }} />
+            }}
+          >
+            <Icon
+              name="ticket"
+              size={16}
+              color="#1890ff"
+              style={{ marginRight: 4 }}
+            />
             <Text style={styles.actionButtonText}>Create Ticket</Text>
           </TouchableOpacity>
         </View>
@@ -241,13 +296,18 @@ const ContactsScreen = () => {
   // Render empty state
   const renderEmptyState = () => {
     if (isLoading) return null;
-    
+
     return (
       <View style={styles.emptyContainer}>
-        <Icon name="people" size={64} color="#d9d9d9" style={styles.emptyIcon} />
+        <Icon
+          name="people"
+          size={64}
+          color="#d9d9d9"
+          style={styles.emptyIcon}
+        />
         <Text style={styles.emptyTitle}>No Contacts Found</Text>
         <Text style={styles.emptyText}>
-          {searchQuery 
+          {searchQuery
             ? 'Try adjusting your search or filters'
             : 'Contacts will appear here when customers reach out'}
         </Text>
@@ -271,76 +331,113 @@ const ContactsScreen = () => {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Contacts</Text>
-          <Text style={styles.headerSubtitle}>{contacts.length} contact{contacts.length !== 1 ? 's' : ''}</Text>
+          <Text style={styles.headerSubtitle}>
+            {contacts.length} contact{contacts.length !== 1 ? 's' : ''}
+          </Text>
         </View>
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search contacts..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      </View>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search contacts..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
 
-      {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
-        {(['ALL' , 'NEW' ,'REGULAR' , 'VIP' , 'BLOCKED' , 'INACTIVE'] as const).map((filter) => (
-          <TouchableOpacity
-            key={filter}
-            style={[styles.filterTab, filterType === filter && styles.filterTabActive]}
-            onPress={() => setFilterType(filter)}>
-            <Text style={[styles.filterText, filterType === filter && styles.filterTextActive]}>
-              {filter}
+        {/* Filter Tabs */}
+        <View style={styles.filterContainer}>
+          {(
+            ['ALL', 'NEW', 'REGULAR', 'VIP', 'BLOCKED', 'INACTIVE'] as const
+          ).map(filter => (
+            <TouchableOpacity
+              key={filter}
+              style={[
+                styles.filterTab,
+                filterType === filter && styles.filterTabActive,
+              ]}
+              onPress={() => setFilterType(filter)}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  filterType === filter && styles.filterTextActive,
+                ]}
+              >
+                {filter}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Sort Options */}
+        <View style={styles.sortContainer}>
+          <Text style={styles.sortLabel}>Sort by:</Text>
+          <TouchableOpacity onPress={() => toggleSort('lastContactedAt')}>
+            <Text
+              style={[
+                styles.sortOption,
+                sortBy === 'lastContactedAt' && styles.sortOptionActive,
+              ]}
+            >
+              Recent{' '}
+              {sortBy === 'lastContactedAt' &&
+                (sortOrder === 'asc' ? '↑' : '↓')}
             </Text>
           </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Sort Options */}
-      <View style={styles.sortContainer}>
-        <Text style={styles.sortLabel}>Sort by:</Text>
-        <TouchableOpacity onPress={() => toggleSort('lastContactedAt')}>
-          <Text style={[styles.sortOption, sortBy === 'lastContactedAt' && styles.sortOptionActive]}>
-            Recent {sortBy === 'lastContactedAt' && (sortOrder === 'asc' ? '↑' : '↓')}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => toggleSort('name')}>
-          <Text style={[styles.sortOption, sortBy === 'name' && styles.sortOptionActive]}>
-            Name {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => toggleSort('totalConversations')}>
-          <Text style={[styles.sortOption, sortBy === 'totalConversations' && styles.sortOptionActive]}>
-            Chats {sortBy === 'totalConversations' && (sortOrder === 'asc' ? '↑' : '↓')}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Contact List */}
-      {isLoading && contacts.length === 0 ? (
-        <View style={styles.centerLoader}>
-          <ActivityIndicator size="large" color="#1890ff" />
-          <Text style={styles.loadingText}>Loading contacts...</Text>
+          <TouchableOpacity onPress={() => toggleSort('name')}>
+            <Text
+              style={[
+                styles.sortOption,
+                sortBy === 'name' && styles.sortOptionActive,
+              ]}
+            >
+              Name {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => toggleSort('totalConversations')}>
+            <Text
+              style={[
+                styles.sortOption,
+                sortBy === 'totalConversations' && styles.sortOptionActive,
+              ]}
+            >
+              Chats{' '}
+              {sortBy === 'totalConversations' &&
+                (sortOrder === 'asc' ? '↑' : '↓')}
+            </Text>
+          </TouchableOpacity>
         </View>
-      ) : (
-        <FlatList
-          data={contacts}
-          renderItem={renderContactItem}
-          keyExtractor={(item) => item.id}
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
-          }
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          ListEmptyComponent={renderEmptyState}
-          ListFooterComponent={renderFooter}
-          contentContainerStyle={contacts.length === 0 ? styles.emptyList : undefined}
-        />
-      )}
+
+        {/* Contact List */}
+        {isLoading && contacts.length === 0 ? (
+          <View style={styles.centerLoader}>
+            <ActivityIndicator size="large" color="#1890ff" />
+            <Text style={styles.loadingText}>Loading contacts...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={contacts}
+            renderItem={renderContactItem}
+            keyExtractor={item => item.id}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+              />
+            }
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
+            ListEmptyComponent={renderEmptyState}
+            ListFooterComponent={renderFooter}
+            contentContainerStyle={
+              contacts.length === 0 ? styles.emptyList : undefined
+            }
+          />
+        )}
       </View>
     </SafeAreaView>
   );

@@ -43,7 +43,10 @@ class TicketService {
     console.log('🔄 ticketService.getTickets() - status:', status);
     const params = status ? `?status=${status}` : '';
     const response = await apiClient.get(`/v1/admin/tickets${params}`);
-    console.log('✅ ticketService.getTickets() - Count:', response.data.tickets?.length || 0);
+    console.log(
+      '✅ ticketService.getTickets() - Count:',
+      response.data.tickets?.length || 0,
+    );
     return response.data.tickets || [];
   }
 
@@ -76,13 +79,19 @@ class TicketService {
     description: string,
     priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT',
   ): Promise<Ticket> {
-    console.log('📤 ticketService.createTicketFromConversation() - conversationId:', conversationId);
-    const response = await apiClient.post('/v1/admin/tickets/from-conversation', {
+    console.log(
+      '📤 ticketService.createTicketFromConversation() - conversationId:',
       conversationId,
-      title,
-      description,
-      priority,
-    });
+    );
+    const response = await apiClient.post(
+      '/v1/admin/tickets/from-conversation',
+      {
+        conversationId,
+        title,
+        description,
+        priority,
+      },
+    );
     console.log('✅ ticketService.createTicketFromConversation() - Success');
     return response.data.ticket;
   }
@@ -93,16 +102,25 @@ class TicketService {
   async getTicketStatuses(): Promise<TicketStatus[]> {
     console.log('🔄 ticketService.getTicketStatuses()');
     const response = await apiClient.get('/v1/admin/tickets/statuses');
-    console.log('✅ ticketService.getTicketStatuses() - Count:', response.data.statuses?.length || 0);
+    console.log(
+      '✅ ticketService.getTicketStatuses() - Count:',
+      response.data.statuses?.length || 0,
+    );
     return response.data.statuses || [];
   }
 
   /**
    * Update ticket
    */
-  async updateTicket(ticketId: string, data: Partial<CreateTicketData>): Promise<Ticket> {
+  async updateTicket(
+    ticketId: string,
+    data: Partial<CreateTicketData>,
+  ): Promise<Ticket> {
     console.log('📤 ticketService.updateTicket() - ticketId:', ticketId);
-    const response = await apiClient.patch(`/v1/admin/tickets/${ticketId}`, data);
+    const response = await apiClient.patch(
+      `/v1/admin/tickets/${ticketId}`,
+      data,
+    );
     console.log('✅ ticketService.updateTicket() - Success');
     return response.data.ticket;
   }

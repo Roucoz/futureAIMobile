@@ -4,8 +4,8 @@
  */
 
 import { types, flow, cast, Instance } from 'mobx-state-tree';
-import { 
-  appointmentsService, 
+import {
+  appointmentsService,
   Appointment as AppointmentType,
   Service as ServiceType,
   CreateAppointmentDto,
@@ -56,7 +56,7 @@ export const AppointmentStore = types
     dateRangeFrom: types.maybeNull(types.string), // Date range filter start
     dateRangeTo: types.maybeNull(types.string), // Date range filter end
   })
-  .views((self) => ({
+  .views(self => ({
     /**
      * Get filtered appointments based on selected status and date range
      */
@@ -65,19 +65,17 @@ export const AppointmentStore = types
 
       // Filter by status
       if (self.selectedStatus && self.selectedStatus !== 'ALL') {
-        filtered = filtered.filter((apt) => apt.status === self.selectedStatus);
+        filtered = filtered.filter(apt => apt.status === self.selectedStatus);
       }
 
       // Filter by date range
       if (self.dateRangeFrom || self.dateRangeTo) {
-        filtered = filtered.filter((apt) => {
+        filtered = filtered.filter(apt => {
           const aptDate = new Date(apt.appointmentDate);
           const fromDate = self.dateRangeFrom
             ? new Date(self.dateRangeFrom)
             : null;
-          const toDate = self.dateRangeTo
-            ? new Date(self.dateRangeTo)
-            : null;
+          const toDate = self.dateRangeTo ? new Date(self.dateRangeTo) : null;
 
           if (fromDate && aptDate < fromDate) return false;
           if (toDate && aptDate > toDate) return false;
@@ -87,7 +85,7 @@ export const AppointmentStore = types
         // Default: only show today and future appointments (not past/due)
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        filtered = filtered.filter((apt) => {
+        filtered = filtered.filter(apt => {
           return new Date(apt.appointmentDate) >= today;
         });
       }
@@ -100,8 +98,8 @@ export const AppointmentStore = types
      */
     get appointmentsByDate() {
       const grouped: { [key: string]: any[] } = {};
-      
-      this.filteredAppointments.forEach((apt) => {
+
+      this.filteredAppointments.forEach(apt => {
         const date = new Date(apt.appointmentDate).toLocaleDateString();
         if (!grouped[date]) {
           grouped[date] = [];
@@ -118,7 +116,7 @@ export const AppointmentStore = types
     get upcomingAppointments() {
       const now = new Date();
       return this.filteredAppointments.filter(
-        (apt) => new Date(apt.appointmentDate) >= now
+        apt => new Date(apt.appointmentDate) >= now,
       );
     },
 
@@ -128,7 +126,7 @@ export const AppointmentStore = types
     get pastAppointments() {
       const now = new Date();
       return this.filteredAppointments.filter(
-        (apt) => new Date(apt.appointmentDate) < now
+        apt => new Date(apt.appointmentDate) < now,
       );
     },
 
@@ -138,7 +136,7 @@ export const AppointmentStore = types
     get todayAppointments() {
       const today = new Date().toDateString();
       return this.filteredAppointments.filter(
-        (apt) => new Date(apt.appointmentDate).toDateString() === today
+        apt => new Date(apt.appointmentDate).toDateString() === today,
       );
     },
 
@@ -146,7 +144,7 @@ export const AppointmentStore = types
      * Get appointment by ID
      */
     getAppointmentById(id: string) {
-      return self.appointments.find((apt) => apt.id === id);
+      return self.appointments.find(apt => apt.id === id);
     },
 
     /**
@@ -158,14 +156,12 @@ export const AppointmentStore = types
       let pool = self.appointments.slice();
 
       if (self.dateRangeFrom || self.dateRangeTo) {
-        pool = pool.filter((apt) => {
+        pool = pool.filter(apt => {
           const aptDate = new Date(apt.appointmentDate);
           const fromDate = self.dateRangeFrom
             ? new Date(self.dateRangeFrom)
             : null;
-          const toDate = self.dateRangeTo
-            ? new Date(self.dateRangeTo)
-            : null;
+          const toDate = self.dateRangeTo ? new Date(self.dateRangeTo) : null;
           if (fromDate && aptDate < fromDate) return false;
           if (toDate && aptDate > toDate) return false;
           return true;
@@ -173,14 +169,14 @@ export const AppointmentStore = types
       } else {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        pool = pool.filter((apt) => new Date(apt.appointmentDate) >= today);
+        pool = pool.filter(apt => new Date(apt.appointmentDate) >= today);
       }
 
       if (status === 'ALL') return pool.length;
-      return pool.filter((apt) => apt.status === status).length;
+      return pool.filter(apt => apt.status === status).length;
     },
   }))
-  .actions((self) => ({
+  .actions(self => ({
     /**
      * Fetch all appointments (always fetch ALL, filter locally)
      */
@@ -190,11 +186,15 @@ export const AppointmentStore = types
 
       try {
         // Always fetch all appointments without status filter
-        const appointments: AppointmentType[] = yield appointmentsService.getAppointments(undefined);
+        const appointments: AppointmentType[] =
+          yield appointmentsService.getAppointments(undefined);
         self.appointments = cast(appointments);
         self.loading = false;
       } catch (error: any) {
-        console.error('❌ AppointmentStore.fetchAppointments() - ERROR:', error);
+        console.error(
+          '❌ AppointmentStore.fetchAppointments() - ERROR:',
+          error,
+        );
         self.error = error.message || 'Failed to load appointments';
         self.loading = false;
       }
@@ -231,11 +231,15 @@ export const AppointmentStore = types
       self.error = null;
 
       try {
-        const appointments: AppointmentType[] = yield appointmentsService.getTodayAppointments();
+        const appointments: AppointmentType[] =
+          yield appointmentsService.getTodayAppointments();
         self.appointments = cast(appointments);
         self.loading = false;
       } catch (error: any) {
-        console.error('❌ AppointmentStore.fetchTodayAppointments() - ERROR:', error);
+        console.error(
+          '❌ AppointmentStore.fetchTodayAppointments() - ERROR:',
+          error,
+        );
         self.error = error.message || 'Failed to load appointments';
         self.loading = false;
       }
@@ -246,21 +250,27 @@ export const AppointmentStore = types
      */
     updateAppointmentStatus: flow(function* (
       appointmentId: string,
-      status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW'
+      status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW',
     ) {
       try {
-        const updated: AppointmentType = yield appointmentsService.updateAppointmentStatus(
-          appointmentId,
-          status
-        );
+        const updated: AppointmentType =
+          yield appointmentsService.updateAppointmentStatus(
+            appointmentId,
+            status,
+          );
 
         // Update local state
-        const index = self.appointments.findIndex((apt) => apt.id === appointmentId);
+        const index = self.appointments.findIndex(
+          apt => apt.id === appointmentId,
+        );
         if (index !== -1) {
           self.appointments[index] = cast(updated);
         }
       } catch (error: any) {
-        console.error('❌ AppointmentStore.updateAppointmentStatus() - ERROR:', error);
+        console.error(
+          '❌ AppointmentStore.updateAppointmentStatus() - ERROR:',
+          error,
+        );
         throw error;
       }
     }),
@@ -268,20 +278,29 @@ export const AppointmentStore = types
     /**
      * Reschedule appointment
      */
-    rescheduleAppointment: flow(function* (appointmentId: string, newDate: string) {
+    rescheduleAppointment: flow(function* (
+      appointmentId: string,
+      newDate: string,
+    ) {
       try {
-        const updated: AppointmentType = yield appointmentsService.rescheduleAppointment(
-          appointmentId,
-          newDate
-        );
+        const updated: AppointmentType =
+          yield appointmentsService.rescheduleAppointment(
+            appointmentId,
+            newDate,
+          );
 
         // Update local state
-        const index = self.appointments.findIndex((apt) => apt.id === appointmentId);
+        const index = self.appointments.findIndex(
+          apt => apt.id === appointmentId,
+        );
         if (index !== -1) {
           self.appointments[index] = cast(updated);
         }
       } catch (error: any) {
-        console.error('❌ AppointmentStore.rescheduleAppointment() - ERROR:', error);
+        console.error(
+          '❌ AppointmentStore.rescheduleAppointment() - ERROR:',
+          error,
+        );
         throw error;
       }
     }),
@@ -294,15 +313,19 @@ export const AppointmentStore = types
       self.error = null;
 
       try {
-        const newAppointment: AppointmentType = yield appointmentsService.createAppointment(data);
-        
+        const newAppointment: AppointmentType =
+          yield appointmentsService.createAppointment(data);
+
         // Add to local state
         self.appointments.push(cast(newAppointment));
         self.loading = false;
-        
+
         return newAppointment;
       } catch (error: any) {
-        console.error('❌ AppointmentStore.createAppointment() - ERROR:', error);
+        console.error(
+          '❌ AppointmentStore.createAppointment() - ERROR:',
+          error,
+        );
         self.error = error.message || 'Failed to create appointment';
         self.loading = false;
         throw error;
@@ -312,22 +335,28 @@ export const AppointmentStore = types
     /**
      * Update appointment (full update)
      */
-    updateAppointment: flow(function* (appointmentId: string, data: UpdateAppointmentDto) {
+    updateAppointment: flow(function* (
+      appointmentId: string,
+      data: UpdateAppointmentDto,
+    ) {
       try {
-        const updated: AppointmentType = yield appointmentsService.updateAppointment(
-          appointmentId,
-          data
-        );
+        const updated: AppointmentType =
+          yield appointmentsService.updateAppointment(appointmentId, data);
 
         // Update local state
-        const index = self.appointments.findIndex((apt) => apt.id === appointmentId);
+        const index = self.appointments.findIndex(
+          apt => apt.id === appointmentId,
+        );
         if (index !== -1) {
           self.appointments[index] = cast(updated);
         }
-        
+
         return updated;
       } catch (error: any) {
-        console.error('❌ AppointmentStore.updateAppointment() - ERROR:', error);
+        console.error(
+          '❌ AppointmentStore.updateAppointment() - ERROR:',
+          error,
+        );
         throw error;
       }
     }),

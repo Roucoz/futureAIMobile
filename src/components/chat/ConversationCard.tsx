@@ -16,8 +16,8 @@ interface ConversationCardProps {
     domain: string;
     customerName: string; // Computed property
     displayTitle: string; // Computed property
-    lastMessage: { 
-      content: string; 
+    lastMessage: {
+      content: string;
       attachmentType: string | null;
       senderType: 'visitor' | 'bot' | 'agent';
       senderName: string | null;
@@ -33,191 +33,217 @@ interface ConversationCardProps {
   onPress: () => void;
 }
 
-const ConversationCard: React.FC<ConversationCardProps> = observer(({ conversation, onPress }) => {
-  const authStore = useAuth();
-  const chatStore = useChat();
+const ConversationCard: React.FC<ConversationCardProps> = observer(
+  ({ conversation, onPress }) => {
+    const authStore = useAuth();
+    const chatStore = useChat();
 
-  const getStatusColor = (status: 'OPEN' | 'CLOSED' | 'ARCHIVED') => {
-    switch (status) {
-      case 'OPEN':
-        return '#52c41a';
-      case 'CLOSED':
-        return '#999';
-      case 'ARCHIVED':
-        return '#666';
-      default:
-        return '#999';
-    }
-  };
+    const getStatusColor = (status: 'OPEN' | 'CLOSED' | 'ARCHIVED') => {
+      switch (status) {
+        case 'OPEN':
+          return '#52c41a';
+        case 'CLOSED':
+          return '#999';
+        case 'ARCHIVED':
+          return '#666';
+        default:
+          return '#999';
+      }
+    };
 
-  const getModeIcon = (mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED') => {
-    switch (mode) {
-      case 'HUMAN_TAKEOVER':
-        return '👤';
-      case 'AI_PAUSED':
-        return '⏸️';
-      default:
-        return '🤖';
-    }
-  };
+    const getModeIcon = (
+      mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED',
+    ) => {
+      switch (mode) {
+        case 'HUMAN_TAKEOVER':
+          return '👤';
+        case 'AI_PAUSED':
+          return '⏸️';
+        default:
+          return '🤖';
+      }
+    };
 
-  const formatTime = (timestamp?: string) => {
-    if (!timestamp) return '';
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    const formatTime = (timestamp?: string) => {
+      if (!timestamp) return '';
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
 
-    if (diffInHours < 24) {
-      return format(date, 'HH:mm');
-    } else {
-      return format(date, 'MMM dd');
-    }
-  };
+      if (diffInHours < 24) {
+        return format(date, 'HH:mm');
+      } else {
+        return format(date, 'MMM dd');
+      }
+    };
 
-  const formatLastMessage = () => {
-    if (!conversation.lastMessage) return 'No messages yet';
-    
-    if (conversation.lastMessage.attachmentType === 'audio') {
-      return '🎤 Voice message';
-    }
-    
-    if (conversation.lastMessage.attachmentType === 'image') {
-      return '🖼️ Image';
-    }
-    
-    return conversation.lastMessage.content || 'No messages yet';
-  };
+    const formatLastMessage = () => {
+      if (!conversation.lastMessage) return 'No messages yet';
 
-  const handleToggleAI = async () => {
-    try {
-      const newMode = conversation.mode === 'AI_ACTIVE' ? 'HUMAN_TAKEOVER' : 'AI_ACTIVE';
-      await chatStore.updateConversationMode(conversation.id, newMode);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to toggle AI');
-    }
-  };
+      if (conversation.lastMessage.attachmentType === 'audio') {
+        return '🎤 Voice message';
+      }
 
-  const handleClaim = async () => {
-    try {
-      await chatStore.claimConversation(conversation.id);
-      Alert.alert('Success', 'Conversation claimed!');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to claim conversation');
-    }
-  };
+      if (conversation.lastMessage.attachmentType === 'image') {
+        return '🖼️ Image';
+      }
 
-  const isClaimedByMe = conversation.assignedToMemberId === authStore.memberId;
+      return conversation.lastMessage.content || 'No messages yet';
+    };
 
-  // Get channel name display
-  const getChannelDisplay = () => {
-    if (conversation.domain === 'whatsapp') {
-      return `WhatsApp ${conversation.visitorId}`;
-    }
-    const visitorCode = conversation.visitorId.split('_')[1] || conversation.visitorId.substring(0, 6).toUpperCase();
-    return `Website Visitor ${visitorCode}`;
-  };
+    const handleToggleAI = async () => {
+      try {
+        const newMode =
+          conversation.mode === 'AI_ACTIVE' ? 'HUMAN_TAKEOVER' : 'AI_ACTIVE';
+        await chatStore.updateConversationMode(conversation.id, newMode);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to toggle AI');
+      }
+    };
 
-  // Get last message sender name
-  const getLastMessageSender = () => {
-    const lastMsg = conversation.lastMessage;
-    if (!lastMsg) return '';
-    
-    if (lastMsg.senderType === 'visitor') {
-      return conversation.domain === 'whatsapp' ? conversation.visitorId : (lastMsg.senderName || 'Visitor');
-    } else if (lastMsg.senderType === 'agent') {
-      return lastMsg.senderName || 'Agent';
-    } else {
-      return 'AI Bot';
-    }
-  };
+    const handleClaim = async () => {
+      try {
+        await chatStore.claimConversation(conversation.id);
+        Alert.alert('Success', 'Conversation claimed!');
+      } catch (error) {
+        Alert.alert('Error', 'Failed to claim conversation');
+      }
+    };
 
-  return (
-    <TouchableOpacity style={styles.container} onPress={onPress} testID="conversation-card">
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Text style={styles.chatName} numberOfLines={1}>
-            {getChannelDisplay()}
-          </Text>
-          {conversation.requiresAttention && (
-            <View style={styles.attentionBadge}>
-              <Text style={styles.attentionIcon}>⚠️</Text>
+    const isClaimedByMe =
+      conversation.assignedToMemberId === authStore.memberId;
+
+    // Get channel name display
+    const getChannelDisplay = () => {
+      if (conversation.domain === 'whatsapp') {
+        return `WhatsApp ${conversation.visitorId}`;
+      }
+      const visitorCode =
+        conversation.visitorId.split('_')[1] ||
+        conversation.visitorId.substring(0, 6).toUpperCase();
+      return `Website Visitor ${visitorCode}`;
+    };
+
+    // Get last message sender name
+    const getLastMessageSender = () => {
+      const lastMsg = conversation.lastMessage;
+      if (!lastMsg) return '';
+
+      if (lastMsg.senderType === 'visitor') {
+        return conversation.domain === 'whatsapp'
+          ? conversation.visitorId
+          : lastMsg.senderName || 'Visitor';
+      } else if (lastMsg.senderType === 'agent') {
+        return lastMsg.senderName || 'Agent';
+      } else {
+        return 'AI Bot';
+      }
+    };
+
+    return (
+      <TouchableOpacity
+        style={styles.container}
+        onPress={onPress}
+        testID="conversation-card"
+      >
+        <View style={styles.header}>
+          <View style={styles.titleRow}>
+            <Text style={styles.chatName} numberOfLines={1}>
+              {getChannelDisplay()}
+            </Text>
+            {conversation.requiresAttention && (
+              <View style={styles.attentionBadge}>
+                <Text style={styles.attentionIcon}>⚠️</Text>
+              </View>
+            )}
+            <View
+              style={[
+                styles.statusBadge,
+                { backgroundColor: getStatusColor(conversation.status) },
+              ]}
+            >
+              <Text style={styles.statusText}>{conversation.status}</Text>
             </View>
-          )}
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(conversation.status) }]}>
-            <Text style={styles.statusText}>{conversation.status}</Text>
           </View>
+          <Text style={styles.time}>{formatTime(conversation.updatedAt)}</Text>
         </View>
-        <Text style={styles.time}>{formatTime(conversation.updatedAt)}</Text>
-      </View>
 
-      <View style={styles.senderRow}>
-        <Text style={styles.senderName}>{getLastMessageSender()}: </Text>
-        <Text style={styles.lastMessage} numberOfLines={1}>
-          {formatLastMessage()}
-        </Text>
-      </View>
-
-      <View style={styles.content}>
-        <Text style={styles.modeIcon}>{getModeIcon(conversation.mode)}</Text>
-      </View>
-
-      {conversation.assignedToMemberId && (
-        <View style={styles.claimStatus}>
-          <Text style={styles.claimIcon}>👤</Text>
-          <Text style={styles.claimText}>
-            {isClaimedByMe
-              ? 'Claimed by you'
-              : `Claimed by ${conversation.assignedToMember?.name || 'Agent'}`}
+        <View style={styles.senderRow}>
+          <Text style={styles.senderName}>{getLastMessageSender()}: </Text>
+          <Text style={styles.lastMessage} numberOfLines={1}>
+            {formatLastMessage()}
           </Text>
         </View>
-      )}
 
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            conversation.mode === 'AI_ACTIVE' ? styles.aiActiveButton : styles.aiInactiveButton,
-          ]}
-          onPress={handleToggleAI}
-          disabled={chatStore.isUpdatingMode}>
-          <Text style={styles.actionButtonText}>
-            {conversation.mode === 'AI_ACTIVE' ? '🤖 AI On' : '👤 Manual'}
-          </Text>
-        </TouchableOpacity>
-
-        {!conversation.assignedToMemberId && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.claimButton]}
-            onPress={handleClaim}
-            disabled={chatStore.isUpdatingMode}>
-            <Text style={styles.actionButtonText}>🙋 Claim</Text>
-          </TouchableOpacity>
-        )}
-
-        {isClaimedByMe && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.releaseButton]}
-            onPress={async () => {
-              try {
-                await chatStore.releaseConversation(conversation.id);
-              } catch (error) {
-                Alert.alert('Error', 'Failed to release conversation');
-              }
-            }}
-            disabled={chatStore.isUpdatingMode}>
-            <Text style={styles.actionButtonText}>↩️ Release</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {conversation.unreadCount > 0 && (
-        <View style={styles.unreadBadge}>
-          <Text style={styles.unreadText}>{conversation.unreadCount}</Text>
+        <View style={styles.content}>
+          <Text style={styles.modeIcon}>{getModeIcon(conversation.mode)}</Text>
         </View>
-      )}
-    </TouchableOpacity>
-  );
-});
+
+        {conversation.assignedToMemberId && (
+          <View style={styles.claimStatus}>
+            <Text style={styles.claimIcon}>👤</Text>
+            <Text style={styles.claimText}>
+              {isClaimedByMe
+                ? 'Claimed by you'
+                : `Claimed by ${
+                    conversation.assignedToMember?.name || 'Agent'
+                  }`}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              conversation.mode === 'AI_ACTIVE'
+                ? styles.aiActiveButton
+                : styles.aiInactiveButton,
+            ]}
+            onPress={handleToggleAI}
+            disabled={chatStore.isUpdatingMode}
+          >
+            <Text style={styles.actionButtonText}>
+              {conversation.mode === 'AI_ACTIVE' ? '🤖 AI On' : '👤 Manual'}
+            </Text>
+          </TouchableOpacity>
+
+          {!conversation.assignedToMemberId && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.claimButton]}
+              onPress={handleClaim}
+              disabled={chatStore.isUpdatingMode}
+            >
+              <Text style={styles.actionButtonText}>🙋 Claim</Text>
+            </TouchableOpacity>
+          )}
+
+          {isClaimedByMe && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.releaseButton]}
+              onPress={async () => {
+                try {
+                  await chatStore.releaseConversation(conversation.id);
+                } catch (error) {
+                  Alert.alert('Error', 'Failed to release conversation');
+                }
+              }}
+              disabled={chatStore.isUpdatingMode}
+            >
+              <Text style={styles.actionButtonText}>↩️ Release</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {conversation.unreadCount > 0 && (
+          <View style={styles.unreadBadge}>
+            <Text style={styles.unreadText}>{conversation.unreadCount}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   container: {

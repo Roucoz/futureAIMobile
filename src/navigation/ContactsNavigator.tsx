@@ -26,11 +26,9 @@ const ContactsNavigator = () => {
       screenOptions={{
         headerShown: false,
         headerLeft: renderBackButton,
-      }}>
-      <Stack.Screen
-        name="ContactsList"
-        component={ContactsScreen}
-      />
+      }}
+    >
+      <Stack.Screen name="ContactsList" component={ContactsScreen} />
       <Stack.Screen
         name="ContactDetail"
         component={ContactDetailScreen}

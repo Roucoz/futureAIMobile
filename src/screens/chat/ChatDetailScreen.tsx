@@ -42,32 +42,40 @@ const ChatDetailScreen = observer(() => {
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [showNewMessagesButton, setShowNewMessagesButton] = useState(false);
   const [previousMessageCount, setPreviousMessageCount] = useState(0);
-  
+
   const flatListRef = useRef<FlatList>(null);
 
   const messages = chatStore.conversationDetail?.messages || [];
 
-  const scrollToBottom = useCallback((animated: boolean = true) => {
-    if (flatListRef.current && messages.length > 0) {
-      flatListRef.current.scrollToEnd({ animated });
-      setShowNewMessagesButton(false);
-      setIsAtBottom(true);
-    }
-  }, [messages.length]);
+  const scrollToBottom = useCallback(
+    (animated: boolean = true) => {
+      if (flatListRef.current && messages.length > 0) {
+        flatListRef.current.scrollToEnd({ animated });
+        setShowNewMessagesButton(false);
+        setIsAtBottom(true);
+      }
+    },
+    [messages.length],
+  );
 
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    
-    // Check if user is at the bottom (with 50px threshold)
-    const isBottom = contentOffset.y + layoutMeasurement.height >= contentSize.height - 50;
-    
-    setIsAtBottom(isBottom);
-    
-    // Hide button if user scrolls to bottom
-    if (isBottom) {
-      setShowNewMessagesButton(false);
-    }
-  }, []);
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, contentSize, layoutMeasurement } =
+        event.nativeEvent;
+
+      // Check if user is at the bottom (with 50px threshold)
+      const isBottom =
+        contentOffset.y + layoutMeasurement.height >= contentSize.height - 50;
+
+      setIsAtBottom(isBottom);
+
+      // Hide button if user scrolls to bottom
+      if (isBottom) {
+        setShowNewMessagesButton(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     // Load conversation detail with messages
@@ -86,7 +94,10 @@ const ChatDetailScreen = observer(() => {
       navigation.setOptions({
         headerTitle: conversation.displayTitle || conversation.customerName,
         headerRight: () => (
-          <TouchableOpacity onPress={showActionSheet} style={styles.headerButton}>
+          <TouchableOpacity
+            onPress={showActionSheet}
+            style={styles.headerButton}
+          >
             <Text style={styles.headerButtonText}>⋮</Text>
           </TouchableOpacity>
         ),
@@ -130,10 +141,10 @@ const ChatDetailScreen = observer(() => {
 
     // Check permissions
     const hasClosePermission = authStore.permissions.some(
-      (p) => p.resource === 'chats' && p.actions.includes('close'),
+      p => p.resource === 'chats' && p.actions.includes('close'),
     );
     const hasTicketPermission = authStore.permissions.some(
-      (p) => p.resource === 'tickets' && p.actions.includes('create'),
+      p => p.resource === 'tickets' && p.actions.includes('create'),
     );
 
     const options: string[] = [];
@@ -146,9 +157,11 @@ const ChatDetailScreen = observer(() => {
         {
           options,
           cancelButtonIndex: options.length - 1,
-          destructiveButtonIndex: hasClosePermission ? options.indexOf('Close Chat') : undefined,
+          destructiveButtonIndex: hasClosePermission
+            ? options.indexOf('Close Chat')
+            : undefined,
         },
-        (buttonIndex) => {
+        buttonIndex => {
           if (options[buttonIndex] === 'Create Ticket') {
             handleCreateTicket();
           } else if (options[buttonIndex] === 'Close Chat') {
@@ -158,19 +171,21 @@ const ChatDetailScreen = observer(() => {
       );
     } else {
       // Android: Show alert with options
-      Alert.alert(
-        'Actions',
-        'Choose an action',
-        [
-          ...(hasTicketPermission
-            ? [{ text: 'Create Ticket', onPress: handleCreateTicket }]
-            : []),
-          ...(hasClosePermission
-            ? [{ text: 'Close Chat', onPress: handleCloseChat, style: 'destructive' as const }]
-            : []),
-          { text: 'Cancel', style: 'cancel' as const },
-        ],
-      );
+      Alert.alert('Actions', 'Choose an action', [
+        ...(hasTicketPermission
+          ? [{ text: 'Create Ticket', onPress: handleCreateTicket }]
+          : []),
+        ...(hasClosePermission
+          ? [
+              {
+                text: 'Close Chat',
+                onPress: handleCloseChat,
+                style: 'destructive' as const,
+              },
+            ]
+          : []),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]);
     }
   };
 
@@ -208,9 +223,13 @@ const ChatDetailScreen = observer(() => {
     setSending(true);
     try {
       // Use authStore.memberId (ProjectMember.id) as agentId
-      await chatStore.sendReply(conversationId, messageText.trim(), authStore.memberId);
+      await chatStore.sendReply(
+        conversationId,
+        messageText.trim(),
+        authStore.memberId,
+      );
       setMessageText('');
-      
+
       // Scroll to bottom after sending
       setTimeout(() => {
         scrollToBottom(true);
@@ -229,7 +248,12 @@ const ChatDetailScreen = observer(() => {
     const hasImage = item.attachmentType === 'image' && item.attachmentUrl;
 
     return (
-      <View style={[styles.messageContainer, isAgent && styles.agentMessageContainer]}>
+      <View
+        style={[
+          styles.messageContainer,
+          isAgent && styles.agentMessageContainer,
+        ]}
+      >
         <View style={[styles.messageBubble, isAgent && styles.agentBubble]}>
           {/* Text Content */}
           {item.content && (
@@ -275,12 +299,13 @@ const ChatDetailScreen = observer(() => {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>  
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
       <FlatList
         ref={flatListRef}
         data={messages}
         renderItem={renderMessage}
-        keyExtractor={(item) => item.id}
+        keyExtractor={item => item.id}
         contentContainerStyle={styles.messagesList}
         inverted={false}
         onScroll={handleScroll}
@@ -296,7 +321,8 @@ const ChatDetailScreen = observer(() => {
       {showNewMessagesButton && (
         <TouchableOpacity
           style={styles.newMessagesButton}
-          onPress={() => scrollToBottom(true)}>
+          onPress={() => scrollToBottom(true)}
+        >
           <Text style={styles.newMessagesButtonText}>↓ New Messages</Text>
         </TouchableOpacity>
       )}
@@ -312,9 +338,13 @@ const ChatDetailScreen = observer(() => {
           editable={!sending}
         />
         <TouchableOpacity
-          style={[styles.sendButton, (!messageText.trim() || sending) && styles.sendButtonDisabled]}
+          style={[
+            styles.sendButton,
+            (!messageText.trim() || sending) && styles.sendButtonDisabled,
+          ]}
           onPress={handleSend}
-          disabled={!messageText.trim() || sending}>
+          disabled={!messageText.trim() || sending}
+        >
           {sending ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (

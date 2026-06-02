@@ -18,7 +18,10 @@ import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { ticketService } from '../../services/api/ticket.service';
 import { useChat } from '../../stores';
 
-type CreateTicketRouteProp = RouteProp<{ CreateTicket: { conversationId: string } }, 'CreateTicket'>;
+type CreateTicketRouteProp = RouteProp<
+  { CreateTicket: { conversationId: string } },
+  'CreateTicket'
+>;
 
 const CreateTicketScreen = () => {
   const route = useRoute<CreateTicketRouteProp>();
@@ -28,19 +31,27 @@ const CreateTicketScreen = () => {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
+  const [priority, setPriority] = useState<
+    'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  >('MEDIUM');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Pre-fill with conversation context
-    const conversation = chatStore.conversations.find((c) => c.id === conversationId);
+    const conversation = chatStore.conversations.find(
+      c => c.id === conversationId,
+    );
     if (conversation) {
-      setTitle(`Support request from ${conversation.customerName || conversation.visitorId}`);
-      
+      setTitle(
+        `Support request from ${
+          conversation.customerName || conversation.visitorId
+        }`,
+      );
+
       // Get last few messages as context
       const lastMessages = conversation.messages
         .slice(-3)
-        .map((m) => `${m.senderType}: ${m.content}`)
+        .map(m => `${m.senderType}: ${m.content}`)
         .join('\n');
       setDescription(`Conversation:\n${lastMessages}`);
     }
@@ -121,19 +132,24 @@ const CreateTicketScreen = () => {
       <View style={styles.field}>
         <Text style={styles.label}>Priority</Text>
         <View style={styles.priorityButtons}>
-          {priorities.map((p) => (
+          {priorities.map(p => (
             <TouchableOpacity
               key={p.value}
               style={[
                 styles.priorityButton,
-                priority === p.value && { backgroundColor: p.color, borderColor: p.color },
+                priority === p.value && {
+                  backgroundColor: p.color,
+                  borderColor: p.color,
+                },
               ]}
-              onPress={() => setPriority(p.value)}>
+              onPress={() => setPriority(p.value)}
+            >
               <Text
                 style={[
                   styles.priorityText,
                   priority === p.value && styles.priorityTextActive,
-                ]}>
+                ]}
+              >
                 {p.label}
               </Text>
             </TouchableOpacity>
@@ -145,7 +161,8 @@ const CreateTicketScreen = () => {
       <TouchableOpacity
         style={[styles.createButton, loading && styles.createButtonDisabled]}
         onPress={handleCreate}
-        disabled={loading}>
+        disabled={loading}
+      >
         {loading ? (
           <ActivityIndicator color="#fff" />
         ) : (
@@ -157,7 +174,8 @@ const CreateTicketScreen = () => {
       <TouchableOpacity
         style={styles.cancelButton}
         onPress={() => navigation.goBack()}
-        disabled={loading}>
+        disabled={loading}
+      >
         <Text style={styles.cancelButtonText}>Cancel</Text>
       </TouchableOpacity>
     </ScrollView>

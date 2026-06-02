@@ -5,7 +5,10 @@
  */
 
 import { types, flow, Instance, cast } from 'mobx-state-tree';
-import { chatService, ChatMessage as ChatMessageType } from '../services/api/chat.service';
+import {
+  chatService,
+  ChatMessage as ChatMessageType,
+} from '../services/api/chat.service';
 import { websocketService } from '../services/websocket/WebSocketService';
 
 // Message model (matches web admin)
@@ -32,24 +35,28 @@ export const AssignedAgent = types.model('AssignedAgent', {
 });
 
 // Conversation preview (list view)
-export const ConversationPreview = types.model('ConversationPreview', {
-  id: types.identifier,
-  visitorId: types.string,
-  domain: types.string,
-  mode: types.enumeration(['AI_ACTIVE', 'HUMAN_TAKEOVER', 'AI_PAUSED']),
-  status: types.optional(types.enumeration(['OPEN', 'CLOSED', 'ARCHIVED']), 'OPEN'),
-  unreadCount: types.number,
-  closedAt: types.maybeNull(types.string),
-  aiOfferedHumanAgent: types.optional(types.boolean, false),
-  requiresAttention: types.optional(types.boolean, false),
-  suggestedAgentName: types.maybeNull(types.string),
-  assignedToMemberId: types.maybeNull(types.string),
-  assignedToMember: types.maybeNull(AssignedAgent),
-  createdAt: types.string,
-  updatedAt: types.string,
-  messages: types.optional(types.array(ChatMessage), []),
-})
-  .views((self) => ({
+export const ConversationPreview = types
+  .model('ConversationPreview', {
+    id: types.identifier,
+    visitorId: types.string,
+    domain: types.string,
+    mode: types.enumeration(['AI_ACTIVE', 'HUMAN_TAKEOVER', 'AI_PAUSED']),
+    status: types.optional(
+      types.enumeration(['OPEN', 'CLOSED', 'ARCHIVED']),
+      'OPEN',
+    ),
+    unreadCount: types.number,
+    closedAt: types.maybeNull(types.string),
+    aiOfferedHumanAgent: types.optional(types.boolean, false),
+    requiresAttention: types.optional(types.boolean, false),
+    suggestedAgentName: types.maybeNull(types.string),
+    assignedToMemberId: types.maybeNull(types.string),
+    assignedToMember: types.maybeNull(AssignedAgent),
+    createdAt: types.string,
+    updatedAt: types.string,
+    messages: types.optional(types.array(ChatMessage), []),
+  })
+  .views(self => ({
     get lastMessage() {
       if (self.messages.length === 0) return null;
       return self.messages[self.messages.length - 1];
@@ -60,14 +67,16 @@ export const ConversationPreview = types.model('ConversationPreview', {
         // Return phone number formatted nicely
         return `WhatsApp ${self.visitorId}`;
       }
-      
+
       // Widget format: Extract visitor name from visitorId or use first message sender
       if (self.messages.length > 0 && self.messages[0].senderName) {
         return self.messages[0].senderName;
       }
-      
+
       // Fallback: "Website Visitor [ID]"
-      const visitorCode = self.visitorId.split('_')[1] || self.visitorId.substring(0, 6).toUpperCase();
+      const visitorCode =
+        self.visitorId.split('_')[1] ||
+        self.visitorId.substring(0, 6).toUpperCase();
       return `Website Visitor ${visitorCode}`;
     },
     get displayTitle() {
@@ -96,10 +105,15 @@ export const ChatStore = types
     conversations: types.array(ConversationPreview),
     selectedChatId: types.maybeNull(types.string),
     conversationDetail: types.maybeNull(ConversationDetail),
-    chatStatus: types.optional(types.enumeration(['OPEN', 'CLOSED', 'ARCHIVED']), 'OPEN'),
-    
+    chatStatus: types.optional(
+      types.enumeration(['OPEN', 'CLOSED', 'ARCHIVED']),
+      'OPEN',
+    ),
+
     // Agent status
-    currentAgentStatus: types.maybeNull(types.enumeration(['ONLINE', 'OFFLINE', 'BUSY', 'AWAY'])),
+    currentAgentStatus: types.maybeNull(
+      types.enumeration(['ONLINE', 'OFFLINE', 'BUSY', 'AWAY']),
+    ),
 
     // Loading states
     isLoading: types.optional(types.boolean, false),
@@ -114,24 +128,30 @@ export const ChatStore = types
 
     error: types.maybeNull(types.string),
   })
-  .views((self) => ({
+  .views(self => ({
     get selectedConversation() {
       if (!self.selectedChatId) return null;
-      return self.conversations.find((c) => c.id === self.selectedChatId);
+      return self.conversations.find(c => c.id === self.selectedChatId);
     },
     get unreadChatsCount() {
-      return self.conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
+      return self.conversations.reduce(
+        (sum, conv) => sum + conv.unreadCount,
+        0,
+      );
     },
     get escalationCount() {
       // Count conversations that require attention
-      return self.conversations.filter((conv) => conv.requiresAttention === true).length;
+      return self.conversations.filter(conv => conv.requiresAttention === true)
+        .length;
     },
     get claimedChatsCount() {
       // Count conversations assigned to current agent
-      return self.conversations.filter((conv) => conv.assignedToMemberId !== null).length;
+      return self.conversations.filter(conv => conv.assignedToMemberId !== null)
+        .length;
     },
     get aiDisabledCount() {
-      return self.conversations.filter((conv) => conv.mode !== 'AI_ACTIVE').length;
+      return self.conversations.filter(conv => conv.mode !== 'AI_ACTIVE')
+        .length;
     },
     isAiTyping(conversationId: string) {
       return self.aiTypingConversationIds.includes(conversationId);
@@ -142,15 +162,19 @@ export const ChatStore = types
     // For compatibility with mobile UI
     get sortedConversations() {
       return self.conversations.slice().sort((a, b) => {
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        return (
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
       });
     },
   }))
   .volatile(() => ({
     websocketUnsubscribe: null as (() => void) | null,
   }))
-  .actions((self) => {
-    const loadConversations = flow(function* (status?: 'OPEN' | 'CLOSED' | 'ARCHIVED') {
+  .actions(self => {
+    const loadConversations = flow(function* (
+      status?: 'OPEN' | 'CLOSED' | 'ARCHIVED',
+    ) {
       console.log('🔄 ChatStore.loadConversations() - START');
       self.isLoading = true;
       self.error = null;
@@ -158,9 +182,13 @@ export const ChatStore = types
       try {
         const filterStatus = status || self.chatStatus;
         const data = yield chatService.getConversations(filterStatus);
-        
+
         self.conversations = cast(data);
-        console.log('✅ ChatStore.loadConversations() - Success:', data.length, 'conversations');
+        console.log(
+          '✅ ChatStore.loadConversations() - Success:',
+          data.length,
+          'conversations',
+        );
       } catch (error: any) {
         self.error = error.message || 'Failed to load conversations';
         console.error('❌ ChatStore.loadConversations() - Error:', error);
@@ -176,17 +204,21 @@ export const ChatStore = types
 
       try {
         const conversation = yield chatService.getConversationById(chatId);
-        
+
         // Update conversationDetail
         self.conversationDetail = cast(conversation);
-        
+
         // Zero out the unread badge in the conversations list
-        const conv = self.conversations.find((c) => c.id === chatId);
+        const conv = self.conversations.find(c => c.id === chatId);
         if (conv) {
           conv.unreadCount = 0;
         }
-        
-        console.log('✅ ChatStore.loadConversationDetail() - Success:', conversation.messages.length, 'messages');
+
+        console.log(
+          '✅ ChatStore.loadConversationDetail() - Success:',
+          conversation.messages.length,
+          'messages',
+        );
       } catch (error: any) {
         self.error = error.message || 'Failed to load conversation';
         console.error('❌ ChatStore.loadConversationDetail() - Error:', error);
@@ -195,18 +227,22 @@ export const ChatStore = types
       }
     });
 
-    const sendReply = flow(function* (chatId: string, content: string, agentId: string) {
+    const sendReply = flow(function* (
+      chatId: string,
+      content: string,
+      agentId: string,
+    ) {
       console.log('📤 ChatStore.sendReply() - START');
       self.isReplyLoading = true;
       self.error = null;
 
       try {
         yield chatService.sendReply(chatId, content, agentId);
-        
+
         // Reload conversation detail to get the new message
         yield loadConversationDetail(chatId);
         yield loadConversations();
-        
+
         console.log('✅ ChatStore.sendReply() - Success');
       } catch (error: any) {
         self.error = error.message || 'Failed to send reply';
@@ -217,18 +253,21 @@ export const ChatStore = types
       }
     });
 
-    const updateConversationMode = flow(function* (chatId: string, mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED') {
+    const updateConversationMode = flow(function* (
+      chatId: string,
+      mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED',
+    ) {
       console.log('🔄 ChatStore.updateConversationMode() - mode:', mode);
       self.isUpdatingMode = true;
       self.error = null;
 
       try {
         yield chatService.updateMode(chatId, mode);
-        
+
         // Reload conversations and detail
         yield loadConversationDetail(chatId);
         yield loadConversations();
-        
+
         console.log('✅ ChatStore.updateConversationMode() - Success');
       } catch (error: any) {
         self.error = error.message || 'Failed to update conversation mode';
@@ -240,17 +279,20 @@ export const ChatStore = types
     });
 
     const claimConversation = flow(function* (conversationId: string) {
-      console.log('🔄 ChatStore.claimConversation() - conversationId:', conversationId);
+      console.log(
+        '🔄 ChatStore.claimConversation() - conversationId:',
+        conversationId,
+      );
       self.isUpdatingMode = true;
       self.error = null;
 
       try {
         yield chatService.claimConversation(conversationId);
-        
+
         // Reload conversations and detail
         yield loadConversationDetail(conversationId);
         yield loadConversations();
-        
+
         console.log('✅ ChatStore.claimConversation() - Success');
       } catch (error: any) {
         self.error = error.message || 'Failed to claim conversation';
@@ -262,17 +304,20 @@ export const ChatStore = types
     });
 
     const releaseConversation = flow(function* (conversationId: string) {
-      console.log('🔄 ChatStore.releaseConversation() - conversationId:', conversationId);
+      console.log(
+        '🔄 ChatStore.releaseConversation() - conversationId:',
+        conversationId,
+      );
       self.isUpdatingMode = true;
       self.error = null;
 
       try {
         yield chatService.releaseConversation(conversationId);
-        
+
         // Reload conversations and detail
         yield loadConversationDetail(conversationId);
         yield loadConversations();
-        
+
         console.log('✅ ChatStore.releaseConversation() - Success');
       } catch (error: any) {
         self.error = error.message || 'Failed to release conversation';
@@ -284,22 +329,25 @@ export const ChatStore = types
     });
 
     const closeConversation = flow(function* (conversationId: string) {
-      console.log('🔄 ChatStore.closeConversation() - conversationId:', conversationId);
+      console.log(
+        '🔄 ChatStore.closeConversation() - conversationId:',
+        conversationId,
+      );
       self.isUpdatingMode = true;
       self.error = null;
 
       try {
         yield chatService.closeConversation(conversationId);
-        
+
         // Reload conversations
         yield loadConversations();
-        
+
         // Clear selected conversation if it was the closed one
         if (self.selectedChatId === conversationId) {
           self.selectedChatId = null;
           self.conversationDetail = null;
         }
-        
+
         console.log('✅ ChatStore.closeConversation() - Success');
       } catch (error: any) {
         self.error = error.message || 'Failed to close conversation';
@@ -310,7 +358,9 @@ export const ChatStore = types
       }
     });
 
-    const updateAgentStatus = flow(function* (status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'AWAY') {
+    const updateAgentStatus = flow(function* (
+      status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'AWAY',
+    ) {
       console.log('🔄 ChatStore.updateAgentStatus() - status:', status);
       self.isStatusLoading = true;
       self.error = null;
@@ -318,7 +368,7 @@ export const ChatStore = types
       try {
         yield chatService.updateAgentStatus(status);
         self.currentAgentStatus = status;
-        
+
         console.log('✅ ChatStore.updateAgentStatus() - Success');
       } catch (error: any) {
         self.error = error.message || 'Failed to update status';
@@ -336,9 +386,16 @@ export const ChatStore = types
 
       try {
         const data = yield chatService.getAgentsWithStatus();
-        self.currentAgentStatus = data.currentStatus as 'ONLINE' | 'OFFLINE' | 'BUSY' | 'AWAY';
-        
-        console.log('✅ ChatStore.fetchAgentStatus() - Status:', data.currentStatus);
+        self.currentAgentStatus = data.currentStatus as
+          | 'ONLINE'
+          | 'OFFLINE'
+          | 'BUSY'
+          | 'AWAY';
+
+        console.log(
+          '✅ ChatStore.fetchAgentStatus() - Status:',
+          data.currentStatus,
+        );
       } catch (error: any) {
         self.error = error.message || 'Failed to fetch status';
         console.error('❌ ChatStore.fetchAgentStatus() - Error:', error);
@@ -358,7 +415,9 @@ export const ChatStore = types
       }
     };
 
-    const setChatStatus = flow(function* (status: 'OPEN' | 'CLOSED' | 'ARCHIVED') {
+    const setChatStatus = flow(function* (
+      status: 'OPEN' | 'CLOSED' | 'ARCHIVED',
+    ) {
       self.chatStatus = status;
       yield loadConversations(status);
     });
@@ -391,17 +450,22 @@ export const ChatStore = types
 
     const addMessage = (conversationId: string, message: ChatMessageType) => {
       // Update conversationDetail if it's the selected conversation
-      if (self.conversationDetail && self.conversationDetail.id === conversationId) {
+      if (
+        self.conversationDetail &&
+        self.conversationDetail.id === conversationId
+      ) {
         self.conversationDetail.messages.push(cast(message));
         self.conversationDetail.updatedAt = new Date().toISOString();
       }
 
       // Update conversation in list
-      const conversation = self.conversations.find((c) => c.id === conversationId);
+      const conversation = self.conversations.find(
+        c => c.id === conversationId,
+      );
       if (conversation) {
         conversation.messages.push(cast(message));
         conversation.updatedAt = new Date().toISOString();
-        
+
         // Increment unread count if not currently viewing this conversation
         if (self.selectedChatId !== conversationId) {
           conversation.unreadCount += 1;
@@ -415,12 +479,12 @@ export const ChatStore = types
 
     const disconnectWebSocket = () => {
       console.log('🔌 ChatStore.disconnectWebSocket()');
-      
+
       if (self.websocketUnsubscribe) {
         self.websocketUnsubscribe();
         self.websocketUnsubscribe = null;
       }
-      
+
       websocketService.disconnect();
     };
 
@@ -445,29 +509,37 @@ export const ChatStore = types
       disconnectWebSocket,
     };
   })
-  .actions((self) => ({
+  .actions(self => ({
     // WebSocket message handler - separate action to ensure proper MST context
     handleWebSocketUpdate(message: any) {
       console.log('📨 WebSocket message received:', message.type);
-      
+
       try {
         switch (message.type) {
           case 'conversation_updated':
             if (message.newMessage && message.conversation) {
               self.addMessage(message.conversation.id, message.newMessage);
-              self.loadConversations().catch((err: any) => console.error('Failed to reload:', err));
+              self
+                .loadConversations()
+                .catch((err: any) => console.error('Failed to reload:', err));
             }
             break;
-          
+
           case 'conversation_mode_updated':
             if (message.conversationId) {
-              self.loadConversations().catch((err: any) => console.error('Failed to reload:', err));
+              self
+                .loadConversations()
+                .catch((err: any) => console.error('Failed to reload:', err));
               if (self.selectedChatId === message.conversationId) {
-                self.loadConversationDetail(message.conversationId).catch((err: any) => console.error('Failed to reload detail:', err));
+                self
+                  .loadConversationDetail(message.conversationId)
+                  .catch((err: any) =>
+                    console.error('Failed to reload detail:', err),
+                  );
               }
             }
             break;
-          
+
           case 'typing_start':
             if (message.conversationId) {
               if (message.source === 'ai') {
@@ -477,7 +549,7 @@ export const ChatStore = types
               }
             }
             break;
-          
+
           case 'typing_stop':
             if (message.conversationId) {
               if (message.source === 'ai') {
@@ -487,40 +559,45 @@ export const ChatStore = types
               }
             }
             break;
-          
+
           case 'escalation_request':
             if (message.conversationId) {
-              self.loadConversations().catch((err: any) => console.error('Failed to reload:', err));
+              self
+                .loadConversations()
+                .catch((err: any) => console.error('Failed to reload:', err));
             }
             break;
-          
+
           default:
-            console.log('Unknown WebSocket message type:', (message as any).type);
+            console.log(
+              'Unknown WebSocket message type:',
+              (message as any).type,
+            );
         }
       } catch (error) {
         console.error('Error handling WebSocket message:', error);
       }
     },
   }))
-  .actions((self) => ({
+  .actions(self => ({
     // WebSocket connection - uses handleWebSocketUpdate action
     setupWebSocketConnection(apiBaseUrl: string, token: string) {
       console.log('🔌 Setting up WebSocket connection');
-      
+
       // Disconnect any existing connection
       if (self.websocketUnsubscribe) {
         self.websocketUnsubscribe();
         self.websocketUnsubscribe = null;
       }
-      
+
       // Connect to WebSocket
       websocketService.connect(apiBaseUrl, token);
-      
+
       // Subscribe with the bound action
-      const unsubscribe = websocketService.subscribe((message) => {
+      const unsubscribe = websocketService.subscribe(message => {
         self.handleWebSocketUpdate(message);
       });
-      
+
       self.websocketUnsubscribe = unsubscribe;
     },
   }));

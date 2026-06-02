@@ -17,7 +17,8 @@ const AuthNavigator = () => {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-      }}>
+      }}
+    >
       <Stack.Screen name="Login" component={LoginScreen} />
       {/* TODO: Add TwoFactorScreen and GoogleCompleteScreen */}
     </Stack.Navigator>

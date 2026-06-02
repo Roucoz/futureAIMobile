@@ -20,7 +20,15 @@ import { format } from 'date-fns';
 const ProfileScreen = observer(() => {
   const authStore = useAuth();
 
-  const InfoRow = ({ label, value, iconName }: { label: string; value: string; iconName: string }) => (
+  const InfoRow = ({
+    label,
+    value,
+    iconName,
+  }: {
+    label: string;
+    value: string;
+    iconName: string;
+  }) => (
     <View style={styles.infoRow}>
       <Icon name={iconName} size={20} color="#1890ff" style={styles.icon} />
       <View style={styles.infoContent}>
@@ -58,54 +66,66 @@ const ProfileScreen = observer(() => {
 
             {/* Info Rows */}
             <View style={styles.infoContainer}>
-              <InfoRow 
-                iconName="mail" 
-                label="Email" 
-                value={authStore.user?.email || 'N/A'} 
+              <InfoRow
+                iconName="mail"
+                label="Email"
+                value={authStore.user?.email || 'N/A'}
               />
-              
-              <InfoRow 
-                iconName="person" 
-                label="First Name" 
-                value={authStore.user?.firstName || 'N/A'} 
+
+              <InfoRow
+                iconName="person"
+                label="First Name"
+                value={authStore.user?.firstName || 'N/A'}
               />
-              
-              <InfoRow 
-                iconName="person-outline" 
-                label="Last Name" 
-                value={authStore.user?.lastName || 'N/A'} 
+
+              <InfoRow
+                iconName="person-outline"
+                label="Last Name"
+                value={authStore.user?.lastName || 'N/A'}
               />
-              
-              <InfoRow 
-                iconName="business" 
-                label="Project ID" 
-                value={authStore.user?.projectId || 'N/A'} 
+
+              <InfoRow
+                iconName="business"
+                label="Project ID"
+                value={authStore.user?.projectId || 'N/A'}
               />
 
               {authStore.user?.createdAt && (
-                <InfoRow 
-                  iconName="calendar" 
-                  label="Member Since" 
-                  value={format(new Date(authStore.user.createdAt), 'MMM dd, yyyy')} 
+                <InfoRow
+                  iconName="calendar"
+                  label="Member Since"
+                  value={format(
+                    new Date(authStore.user.createdAt),
+                    'MMM dd, yyyy',
+                  )}
                 />
               )}
 
-              <InfoRow 
-                iconName={authStore.user?.twoFactorEnabled ? "lock-closed" : "lock-open"} 
-                label="Two-Factor Auth" 
-                value={authStore.user?.twoFactorEnabled ? 'Enabled' : 'Disabled'} 
+              <InfoRow
+                iconName={
+                  authStore.user?.twoFactorEnabled ? 'lock-closed' : 'lock-open'
+                }
+                label="Two-Factor Auth"
+                value={
+                  authStore.user?.twoFactorEnabled ? 'Enabled' : 'Disabled'
+                }
               />
             </View>
           </View>
 
           {/* Actions */}
           <View style={styles.actions}>
-            <TouchableOpacity 
-              style={styles.logoutButton} 
+            <TouchableOpacity
+              style={styles.logoutButton}
               onPress={() => authStore.logout()}
               activeOpacity={0.8}
             >
-              <Icon name="log-out" size={20} color="#fff" style={styles.logoutIcon} />
+              <Icon
+                name="log-out"
+                size={20}
+                color="#fff"
+                style={styles.logoutIcon}
+              />
               <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>
           </View>
@@ -248,8 +268,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     backgroundColor: '#f5222d',
-    color: "white"
-    
+    color: 'white',
   },
   version: {
     textAlign: 'center',

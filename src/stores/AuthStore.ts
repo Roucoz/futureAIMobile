@@ -14,17 +14,18 @@ export const PermissionModel = types.model('Permission', {
 });
 
 // User model (matches backend response)
-export const UserModel = types.model('User', {
-  id: types.identifier,
-  email: types.string,
-  firstName: types.string,
-  lastName: types.string,
-  projectId: types.string,
-  role: types.string,
-  twoFactorEnabled: types.boolean,
-  createdAt: types.maybeNull(types.string),
-})
-  .views((self) => ({
+export const UserModel = types
+  .model('User', {
+    id: types.identifier,
+    email: types.string,
+    firstName: types.string,
+    lastName: types.string,
+    projectId: types.string,
+    role: types.string,
+    twoFactorEnabled: types.boolean,
+    createdAt: types.maybeNull(types.string),
+  })
+  .views(self => ({
     get fullName() {
       return `${self.firstName} ${self.lastName}`;
     },
@@ -41,7 +42,7 @@ export const AuthStore = types
     loading: types.optional(types.boolean, false),
     error: types.maybeNull(types.string),
   })
-  .actions((self) => ({
+  .actions(self => ({
     /**
      * Login with email and password
      */
@@ -62,7 +63,7 @@ export const AuthStore = types
         if (response.token) {
           yield secureStorage.setToken(response.token);
           self.token = response.token;
-          
+
           // Map user data to match model
           self.user = cast({
             id: response.user.id,
@@ -74,7 +75,7 @@ export const AuthStore = types
             twoFactorEnabled: response.user.twoFactorEnabled,
             createdAt: response.user.createdAt || null,
           });
-          
+
           self.memberId = response.memberId;
           self.permissions = cast(response.permissions || []);
           self.isAuthenticated = true;
@@ -103,7 +104,7 @@ export const AuthStore = types
         if (response.token) {
           yield secureStorage.setToken(response.token);
           self.token = response.token;
-          
+
           // Map user data to match model
           self.user = cast({
             id: response.user.id,
@@ -115,7 +116,7 @@ export const AuthStore = types
             twoFactorEnabled: response.user.twoFactorEnabled,
             createdAt: response.user.createdAt || null,
           });
-          
+
           self.memberId = response.memberId;
           self.permissions = cast(response.permissions || []);
           self.isAuthenticated = true;
@@ -135,7 +136,7 @@ export const AuthStore = types
      */
     initialize: flow(function* () {
       self.loading = true;
-      
+
       try {
         const token = yield secureStorage.getToken();
 
@@ -149,7 +150,7 @@ export const AuthStore = types
 
         try {
           const response = yield authService.getMe();
-          
+
           // Map user data to match model
           self.user = cast({
             id: response.user.id,
@@ -161,7 +162,7 @@ export const AuthStore = types
             twoFactorEnabled: response.user.twoFactorEnabled,
             createdAt: response.user.createdAt || null,
           });
-          
+
           self.memberId = response.memberId;
           self.permissions = cast(response.permissions || []);
           self.isAuthenticated = true;
@@ -184,7 +185,7 @@ export const AuthStore = types
       try {
         yield authService.logout();
         yield secureStorage.removeToken();
-        
+
         // Reset state
         self.user = null;
         self.token = null;
@@ -204,13 +205,13 @@ export const AuthStore = types
       self.error = null;
     },
   }))
-  .views((self) => ({
+  .views(self => ({
     /**
      * Check if user has specific permission
      */
     hasPermission(resource: string, action: string): boolean {
       return self.permissions.some(
-        (p) => p.resource === resource && p.actions.includes(action)
+        p => p.resource === resource && p.actions.includes(action),
       );
     },
 

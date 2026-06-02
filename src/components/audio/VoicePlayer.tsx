@@ -13,8 +13,10 @@ interface VoicePlayerProps {
   onError?: (error: Error) => void;
 }
 
-const VoicePlayer: React.FC<VoicePlayerProps> = ({ audioUrl, transcription }) => {
-
+const VoicePlayer: React.FC<VoicePlayerProps> = ({
+  audioUrl,
+  transcription,
+}) => {
   return (
     <View style={styles.container}>
       <View style={styles.placeholderContainer}>

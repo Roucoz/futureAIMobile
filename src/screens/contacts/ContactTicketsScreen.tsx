@@ -65,7 +65,8 @@ const ContactTicketsScreen = () => {
       <TouchableOpacity
         style={styles.ticketCard}
         onPress={() => handleTicketPress(item.id)}
-        activeOpacity={0.7}>
+        activeOpacity={0.7}
+      >
         <View style={styles.ticketHeader}>
           <Text style={styles.ticketNumber}>#{item.ticketNumber}</Text>
           <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
@@ -82,7 +83,12 @@ const ContactTicketsScreen = () => {
             </Text>
           </View>
           <View style={styles.categoryRow}>
-            <Icon name="folder" size={14} color="#666" style={{ marginRight: 4 }} />
+            <Icon
+              name="folder"
+              size={14}
+              color="#666"
+              style={{ marginRight: 4 }}
+            />
             <Text style={styles.categoryText}>{item.category}</Text>
           </View>
         </View>
@@ -103,11 +109,16 @@ const ContactTicketsScreen = () => {
         <FlatList
           data={tickets}
           renderItem={renderTicket}
-          keyExtractor={(item) => item.id}
+          keyExtractor={item => item.id}
           contentContainerStyle={styles.listContainer}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Icon name="ticket" size={64} color="#d9d9d9" style={styles.emptyIcon} />
+              <Icon
+                name="ticket"
+                size={64}
+                color="#d9d9d9"
+                style={styles.emptyIcon}
+              />
               <Text style={styles.emptyText}>No tickets found</Text>
             </View>
           }
@@ -219,7 +230,6 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyIcon: {
-
     marginBottom: 12,
   },
   emptyText: {

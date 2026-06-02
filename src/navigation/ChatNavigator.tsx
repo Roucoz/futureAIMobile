@@ -24,7 +24,8 @@ const ChatNavigator = () => {
       screenOptions={{
         headerShown: false,
         headerLeft: renderBackButton,
-      }}>
+      }}
+    >
       <Stack.Screen
         name="ConversationList"
         component={ConversationListScreen}

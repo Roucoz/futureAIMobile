@@ -4,7 +4,14 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, Text, TouchableOpacity } from 'react-native';
+import {
+  View,
+  FlatList,
+  StyleSheet,
+  RefreshControl,
+  Text,
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
 import { useNavigation } from '@react-navigation/native';
@@ -14,7 +21,9 @@ import ConversationCard from '../../components/chat/ConversationCard';
 const ConversationListScreen = observer(() => {
   const navigation = useNavigation();
   const chatStore = useChat();
-  const [activeTab, setActiveTab] = useState<'OPEN' | 'CLOSED' | 'CLAIMED'>('OPEN');
+  const [activeTab, setActiveTab] = useState<'OPEN' | 'CLOSED' | 'CLAIMED'>(
+    'OPEN',
+  );
 
   useEffect(() => {
     // Load conversations based on tab (CLAIMED uses OPEN status)
@@ -37,14 +46,23 @@ const ConversationListScreen = observer(() => {
   };
 
   // Get counts for all tabs
-  const openCount = chatStore.conversations.filter((c) => c.status === 'OPEN').length;
-  const closedCount = chatStore.conversations.filter((c) => c.status === 'CLOSED').length;
-  const claimedCount = chatStore.conversations.filter((c) => c.assignedToMemberId !== null && c.status === 'OPEN').length;
+  const openCount = chatStore.conversations.filter(
+    c => c.status === 'OPEN',
+  ).length;
+  const closedCount = chatStore.conversations.filter(
+    c => c.status === 'CLOSED',
+  ).length;
+  const claimedCount = chatStore.conversations.filter(
+    c => c.assignedToMemberId !== null && c.status === 'OPEN',
+  ).length;
 
   // Filter conversations based on active tab
-  const filteredConversations = activeTab === 'CLAIMED' 
-    ? chatStore.sortedConversations.filter((c) => c.assignedToMemberId !== null && c.status === 'OPEN')
-    : chatStore.sortedConversations;
+  const filteredConversations =
+    activeTab === 'CLAIMED'
+      ? chatStore.sortedConversations.filter(
+          c => c.assignedToMemberId !== null && c.status === 'OPEN',
+        )
+      : chatStore.sortedConversations;
 
   if (chatStore.isLoading && chatStore.conversations.length === 0) {
     return (
@@ -58,24 +76,48 @@ const ConversationListScreen = observer(() => {
 
           {/* Filter Tabs */}
           <View style={styles.tabsContainer}>
-            {([{ key: 'OPEN', count: openCount }, { key: 'CLOSED', count: closedCount }, { key: 'CLAIMED', count: claimedCount }] as const).map((tab) => (
+            {(
+              [
+                { key: 'OPEN', count: openCount },
+                { key: 'CLOSED', count: closedCount },
+                { key: 'CLAIMED', count: claimedCount },
+              ] as const
+            ).map(tab => (
               <TouchableOpacity
                 key={tab.key}
                 style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-                onPress={() => handleTabChange(tab.key as any)}>
-                <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+                onPress={() => handleTabChange(tab.key as any)}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    activeTab === tab.key && styles.tabTextActive,
+                  ]}
+                >
                   {tab.key === 'CLAIMED' ? 'BY ME' : tab.key}
                 </Text>
-                <View style={[styles.countBadge, activeTab === tab.key && styles.countBadgeActive]}>
-                  <Text style={[styles.countText, activeTab === tab.key && styles.countTextActive]}>{tab.count}</Text>
+                <View
+                  style={[
+                    styles.countBadge,
+                    activeTab === tab.key && styles.countBadgeActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.countText,
+                      activeTab === tab.key && styles.countTextActive,
+                    ]}
+                  >
+                    {tab.count}
+                  </Text>
                 </View>
               </TouchableOpacity>
             ))}
           </View>
-        
-        <View style={styles.centerContainer}>
-          <Text style={styles.loadingText}>Loading conversations...</Text>
-        </View>
+
+          <View style={styles.centerContainer}>
+            <Text style={styles.loadingText}>Loading conversations...</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -93,29 +135,55 @@ const ConversationListScreen = observer(() => {
 
           {/* Filter Tabs */}
           <View style={styles.tabsContainer}>
-            {([{ key: 'OPEN', count: openCount }, { key: 'CLOSED', count: closedCount }, { key: 'CLAIMED', count: claimedCount }] as const).map((tab) => (
+            {(
+              [
+                { key: 'OPEN', count: openCount },
+                { key: 'CLOSED', count: closedCount },
+                { key: 'CLAIMED', count: claimedCount },
+              ] as const
+            ).map(tab => (
               <TouchableOpacity
                 key={tab.key}
                 style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-                onPress={() => handleTabChange(tab.key as any)}>
-                <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+                onPress={() => handleTabChange(tab.key as any)}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    activeTab === tab.key && styles.tabTextActive,
+                  ]}
+                >
                   {tab.key === 'CLAIMED' ? 'BY ME' : tab.key}
                 </Text>
-                <View style={[styles.countBadge, activeTab === tab.key && styles.countBadgeActive]}>
-                  <Text style={[styles.countText, activeTab === tab.key && styles.countTextActive]}>{tab.count}</Text>
+                <View
+                  style={[
+                    styles.countBadge,
+                    activeTab === tab.key && styles.countBadgeActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.countText,
+                      activeTab === tab.key && styles.countTextActive,
+                    ]}
+                  >
+                    {tab.count}
+                  </Text>
                 </View>
               </TouchableOpacity>
             ))}
           </View>
-        
-        <View style={styles.centerContainer}>
-          <Text style={styles.emptyTitle}>No {activeTab.toLowerCase()} conversations</Text>
-          <Text style={styles.emptySubtitle}>
-            {activeTab === 'OPEN'
-              ? 'Conversations will appear here when customers contact you'
-              : `No ${activeTab.toLowerCase()} conversations found`}
-          </Text>
-        </View>
+
+          <View style={styles.centerContainer}>
+            <Text style={styles.emptyTitle}>
+              No {activeTab.toLowerCase()} conversations
+            </Text>
+            <Text style={styles.emptySubtitle}>
+              {activeTab === 'OPEN'
+                ? 'Conversations will appear here when customers contact you'
+                : `No ${activeTab.toLowerCase()} conversations found`}
+            </Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -127,44 +195,71 @@ const ConversationListScreen = observer(() => {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Conversations</Text>
-          <Text style={styles.headerSubtitle}>{chatStore.conversations.length} conversation{chatStore.conversations.length !== 1 ? 's' : ''}</Text>
+          <Text style={styles.headerSubtitle}>
+            {chatStore.conversations.length} conversation
+            {chatStore.conversations.length !== 1 ? 's' : ''}
+          </Text>
         </View>
 
         {/* Filter Tabs */}
         <View style={styles.tabsContainer}>
-          {([{ key: 'OPEN', count: openCount }, { key: 'CLOSED', count: closedCount }, { key: 'CLAIMED', count: claimedCount }] as const).map((tab) => (
+          {(
+            [
+              { key: 'OPEN', count: openCount },
+              { key: 'CLOSED', count: closedCount },
+              { key: 'CLAIMED', count: claimedCount },
+            ] as const
+          ).map(tab => (
             <TouchableOpacity
               key={tab.key}
               style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-              onPress={() => handleTabChange(tab.key as any)}>
-              <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+              onPress={() => handleTabChange(tab.key as any)}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === tab.key && styles.tabTextActive,
+                ]}
+              >
                 {tab.key === 'CLAIMED' ? 'BY ME' : tab.key}
               </Text>
-              <View style={[styles.countBadge, activeTab === tab.key && styles.countBadgeActive]}>
-                <Text style={[styles.countText, activeTab === tab.key && styles.countTextActive]}>{tab.count}</Text>
+              <View
+                style={[
+                  styles.countBadge,
+                  activeTab === tab.key && styles.countBadgeActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.countText,
+                    activeTab === tab.key && styles.countTextActive,
+                  ]}
+                >
+                  {tab.count}
+                </Text>
               </View>
             </TouchableOpacity>
           ))}
         </View>
 
-      {/* Conversation List */}
-      <FlatList
-        data={filteredConversations}
-        renderItem={({ item }) => (
-          <ConversationCard
-            conversation={item}
-            onPress={() => handleConversationPress(item.id)}
-          />
-        )}
-        keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl
-            refreshing={chatStore.isLoading}
-            onRefresh={handleRefresh}
-            tintColor="#1890ff"
-          />
-        }
-      />
+        {/* Conversation List */}
+        <FlatList
+          data={filteredConversations}
+          renderItem={({ item }) => (
+            <ConversationCard
+              conversation={item}
+              onPress={() => handleConversationPress(item.id)}
+            />
+          )}
+          keyExtractor={item => item.id}
+          refreshControl={
+            <RefreshControl
+              refreshing={chatStore.isLoading}
+              onRefresh={handleRefresh}
+              tintColor="#1890ff"
+            />
+          }
+        />
       </View>
     </SafeAreaView>
   );

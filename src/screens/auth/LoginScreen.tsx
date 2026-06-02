@@ -73,7 +73,8 @@ const LoginScreen = observer(() => {
       <TouchableOpacity
         style={[styles.button, authStore.loading && styles.buttonDisabled]}
         onPress={handleLogin}
-        disabled={authStore.loading}>
+        disabled={authStore.loading}
+      >
         {authStore.loading ? (
           <ActivityIndicator color="#fff" />
         ) : (
@@ -82,9 +83,13 @@ const LoginScreen = observer(() => {
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.googleButton, authStore.loading && styles.buttonDisabled]}
+        style={[
+          styles.googleButton,
+          authStore.loading && styles.buttonDisabled,
+        ]}
         onPress={handleGoogleLogin}
-        disabled={authStore.loading}>
+        disabled={authStore.loading}
+      >
         <Text style={styles.googleButtonText}>Continue with Google</Text>
       </TouchableOpacity>
     </View>

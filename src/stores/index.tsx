@@ -15,8 +15,12 @@ const StoreContext = createContext<IRootStore>(rootStore);
 /**
  * Store Provider Component
  */
-export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  return <StoreContext.Provider value={rootStore}>{children}</StoreContext.Provider>;
+export const StoreProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
+  return (
+    <StoreContext.Provider value={rootStore}>{children}</StoreContext.Provider>
+  );
 };
 
 /**

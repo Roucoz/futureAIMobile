@@ -65,246 +65,382 @@ const STATUS_ICON_NAMES: Record<string, string> = {
 
 const STATUS_OPTIONS = [
   { key: 'PENDING', label: 'Pending', icon: '🟠', iconName: 'time' },
-  { key: 'CONFIRMED', label: 'Confirmed', icon: '🔵', iconName: 'checkmark-circle' },
-  { key: 'COMPLETED', label: 'Completed', icon: '🟢', iconName: 'checkmark-done-circle' },
+  {
+    key: 'CONFIRMED',
+    label: 'Confirmed',
+    icon: '🔵',
+    iconName: 'checkmark-circle',
+  },
+  {
+    key: 'COMPLETED',
+    label: 'Completed',
+    icon: '🟢',
+    iconName: 'checkmark-done-circle',
+  },
   { key: 'CANCELED', label: 'Canceled', icon: '🔴', iconName: 'close-circle' },
   { key: 'NO_SHOW', label: 'No Show', icon: '⚫', iconName: 'alert-circle' },
 ];
 
-const AppointmentDetailsModal = observer(({
-  visible,
-  onClose,
-  appointment,
-  onEdit,
-  onSuccess,
-}: AppointmentDetailsModalProps) => {
-  const appointmentStore = useAppointment();
-  const [updatingStatus, setUpdatingStatus] = useState(false);
+const AppointmentDetailsModal = observer(
+  ({
+    visible,
+    onClose,
+    appointment,
+    onEdit,
+    onSuccess,
+  }: AppointmentDetailsModalProps) => {
+    const appointmentStore = useAppointment();
+    const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  if (!appointment) return null;
+    if (!appointment) return null;
 
-  const appointmentDate = new Date(appointment.appointmentDate);
-  const isUpcoming = appointmentDate >= new Date();
+    const appointmentDate = new Date(appointment.appointmentDate);
+    const isUpcoming = appointmentDate >= new Date();
 
-  const handleStatusChange = async (newStatus: string) => {
-    Alert.alert(
-      'Change Status',
-      `Change appointment status to ${STATUS_LABELS[newStatus]}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: async () => {
-            setUpdatingStatus(true);
-            try {
-              await appointmentStore.updateAppointmentStatus(appointment.id, newStatus as any);
-              Alert.alert('Success', 'Status updated successfully');
-              onSuccess?.();
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to update status');
-            } finally {
-              setUpdatingStatus(false);
-            }
+    const handleStatusChange = async (newStatus: string) => {
+      Alert.alert(
+        'Change Status',
+        `Change appointment status to ${STATUS_LABELS[newStatus]}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Confirm',
+            onPress: async () => {
+              setUpdatingStatus(true);
+              try {
+                await appointmentStore.updateAppointmentStatus(
+                  appointment.id,
+                  newStatus as any,
+                );
+                Alert.alert('Success', 'Status updated successfully');
+                onSuccess?.();
+              } catch (error: any) {
+                Alert.alert(
+                  'Error',
+                  error.message || 'Failed to update status',
+                );
+              } finally {
+                setUpdatingStatus(false);
+              }
+            },
           },
-        },
-      ]
-    );
-  };
+        ],
+      );
+    };
 
-  const handleCall = () => {
-    if (appointment.customerPhone) {
-      Linking.openURL(`tel:${appointment.customerPhone}`);
-    }
-  };
+    const handleCall = () => {
+      if (appointment.customerPhone) {
+        Linking.openURL(`tel:${appointment.customerPhone}`);
+      }
+    };
 
-  const handleEmail = () => {
-    if (appointment.customerEmail) {
-      Linking.openURL(`mailto:${appointment.customerEmail}`);
-    }
-  };
+    const handleEmail = () => {
+      if (appointment.customerEmail) {
+        Linking.openURL(`mailto:${appointment.customerEmail}`);
+      }
+    };
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
-      onRequestClose={onClose}
-    >
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Text style={styles.closeText}>Close</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>Appointment Details</Text>
-          <TouchableOpacity onPress={() => onEdit(appointment)} style={styles.editButton}>
-            <Text style={styles.editText}>Edit</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Status Badge */}
-          <View style={[styles.statusBanner, { backgroundColor: STATUS_COLORS[appointment.status] }]}>
-            <Icon name={STATUS_ICON_NAMES[appointment.status]} size={24} color="#fff" style={styles.statusBannerIcon} />
-            <Text style={styles.statusBannerText}>{STATUS_LABELS[appointment.status]}</Text>
+    return (
+      <Modal
+        visible={visible}
+        animationType="slide"
+        presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
+        onRequestClose={onClose}
+      >
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Text style={styles.closeText}>Close</Text>
+            </TouchableOpacity>
+            <Text style={styles.title}>Appointment Details</Text>
+            <TouchableOpacity
+              onPress={() => onEdit(appointment)}
+              style={styles.editButton}
+            >
+              <Text style={styles.editText}>Edit</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Date & Time */}
-          <View style={styles.section}>
-            <View style={styles.sectionTitleRow}>
-              <Icon name="calendar" size={18} color="#1890ff" style={{marginTop: -10}} />
-              <Text style={styles.sectionTitle}>Date & Time</Text>
-            </View>
-            <View style={styles.dateTimeCard}>
-              <Text style={styles.dateText}>{format(appointmentDate, 'EEEE, MMMM dd, yyyy')}</Text>
-              <Text style={styles.timeText}>{format(appointmentDate, 'h:mm a')}</Text>
-              <Text style={styles.durationText}>
-                Duration: {appointment.durationMinutes} minutes
+          <ScrollView
+            style={styles.content}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Status Badge */}
+            <View
+              style={[
+                styles.statusBanner,
+                { backgroundColor: STATUS_COLORS[appointment.status] },
+              ]}
+            >
+              <Icon
+                name={STATUS_ICON_NAMES[appointment.status]}
+                size={24}
+                color="#fff"
+                style={styles.statusBannerIcon}
+              />
+              <Text style={styles.statusBannerText}>
+                {STATUS_LABELS[appointment.status]}
               </Text>
-              {isUpcoming && (
-                <View style={styles.upcomingBadge}>
-                  <Icon name="time" size={14} color="#fa8c16" style={{ marginRight: 4 }} />
-                  <Text style={styles.upcomingText}>Upcoming</Text>
+            </View>
+
+            {/* Date & Time */}
+            <View style={styles.section}>
+              <View style={styles.sectionTitleRow}>
+                <Icon
+                  name="calendar"
+                  size={18}
+                  color="#1890ff"
+                  style={{ marginTop: -10 }}
+                />
+                <Text style={styles.sectionTitle}>Date & Time</Text>
+              </View>
+              <View style={styles.dateTimeCard}>
+                <Text style={styles.dateText}>
+                  {format(appointmentDate, 'EEEE, MMMM dd, yyyy')}
+                </Text>
+                <Text style={styles.timeText}>
+                  {format(appointmentDate, 'h:mm a')}
+                </Text>
+                <Text style={styles.durationText}>
+                  Duration: {appointment.durationMinutes} minutes
+                </Text>
+                {isUpcoming && (
+                  <View style={styles.upcomingBadge}>
+                    <Icon
+                      name="time"
+                      size={14}
+                      color="#fa8c16"
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text style={styles.upcomingText}>Upcoming</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Service */}
+            <View style={styles.section}>
+              <View style={styles.sectionTitleRow}>
+                <Icon
+                  name="briefcase"
+                  size={18}
+                  color="#1890ff"
+                  style={{ marginTop: -10 }}
+                />
+                <Text style={styles.sectionTitle}>Service</Text>
+              </View>
+              <View style={styles.infoCard}>
+                <Text style={styles.serviceName}>
+                  {appointment.service.name}
+                </Text>
+                {appointment.service.category && (
+                  <Text style={styles.serviceCategory}>
+                    Category: {appointment.service.category}
+                  </Text>
+                )}
+                {appointment.service.price && (
+                  <Text style={styles.servicePrice}>
+                    Price: ${appointment.service.price}
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {/* Customer */}
+            <View style={styles.section}>
+              <View style={styles.sectionTitleRow}>
+                <Icon
+                  name="person"
+                  size={18}
+                  color="#1890ff"
+                  style={{ marginTop: -10 }}
+                />
+                <Text style={styles.sectionTitle}>Customer</Text>
+              </View>
+              <View style={styles.infoCard}>
+                <Text style={styles.customerName}>
+                  {appointment.customerName}
+                </Text>
+
+                {appointment.customerPhone && (
+                  <TouchableOpacity
+                    style={styles.contactRow}
+                    onPress={handleCall}
+                  >
+                    <Icon
+                      name="call"
+                      size={18}
+                      color="#1890ff"
+                      style={styles.contactIcon}
+                    />
+                    <Text style={styles.contactText}>
+                      {appointment.customerPhone}
+                    </Text>
+                    <Text style={styles.contactAction}>Call</Text>
+                  </TouchableOpacity>
+                )}
+
+                {appointment.customerEmail && (
+                  <TouchableOpacity
+                    style={styles.contactRow}
+                    onPress={handleEmail}
+                  >
+                    <Icon
+                      name="mail"
+                      size={18}
+                      color="#1890ff"
+                      style={styles.contactIcon}
+                    />
+                    <Text style={styles.contactText}>
+                      {appointment.customerEmail}
+                    </Text>
+                    <Text style={styles.contactAction}>Email</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Customer Notes */}
+            {appointment.customerNotes && (
+              <View style={styles.section}>
+                <View style={styles.sectionTitleRow}>
+                  <Icon
+                    name="document-text"
+                    size={18}
+                    color="#1890ff"
+                    style={{ marginTop: -10 }}
+                  />
+                  <Text style={styles.sectionTitle}>Customer Notes</Text>
+                </View>
+                <View style={styles.notesCard}>
+                  <Text style={styles.notesText}>
+                    {appointment.customerNotes}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Internal Notes */}
+            {appointment.internalNotes && (
+              <View style={styles.section}>
+                <View style={styles.sectionTitleRow}>
+                  <Icon
+                    name="lock-closed"
+                    size={18}
+                    color="#1890ff"
+                    style={{ marginTop: -10 }}
+                  />
+                  <Text style={styles.sectionTitle}>Internal Notes</Text>
+                </View>
+                <View style={[styles.notesCard, styles.internalNotesCard]}>
+                  <Text style={styles.notesText}>
+                    {appointment.internalNotes}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Change Status */}
+            <View style={styles.section}>
+              <View style={styles.sectionTitleRow}>
+                <Icon
+                  name="refresh"
+                  size={18}
+                  color="#1890ff"
+                  style={{ marginTop: -10 }}
+                />
+                <Text style={styles.sectionTitle}>Change Status</Text>
+              </View>
+              {updatingStatus ? (
+                <ActivityIndicator size="small" color="#1890ff" />
+              ) : (
+                <View style={styles.statusButtons}>
+                  {STATUS_OPTIONS.map(status => {
+                    const isActive = appointment.status === status.key;
+                    const statusColor = STATUS_COLORS[status.key];
+                    return (
+                      <TouchableOpacity
+                        key={status.key}
+                        style={[
+                          styles.statusButton,
+                          isActive && styles.statusButtonActive,
+                          isActive && {
+                            backgroundColor: statusColor,
+                            border: statusColor,
+                          },
+                        ]}
+                        onPress={() => handleStatusChange(status.key)}
+                        disabled={appointment.status === status.key}
+                      >
+                        <Icon
+                          name={status.iconName}
+                          size={20}
+                          color={!isActive ? '#eee' : '#fff'}
+                          style={styles.statusButtonIcon}
+                        />
+                        <Text
+                          style={[
+                            styles.statusButtonText,
+                            appointment.status === status.key &&
+                              styles.statusButtonTextActive,
+                            isActive && { color: '#fff' },
+                          ]}
+                        >
+                          {status.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               )}
             </View>
-          </View>
 
-          {/* Service */}
-          <View style={styles.section}>
-            <View style={styles.sectionTitleRow}>
-              <Icon name="briefcase" size={18} color="#1890ff"  style={{marginTop: -10}}/>
-              <Text style={styles.sectionTitle}>Service</Text>
-            </View>
-            <View style={styles.infoCard}>
-              <Text style={styles.serviceName}>{appointment.service.name}</Text>
-              {appointment.service.category && (
-                <Text style={styles.serviceCategory}>Category: {appointment.service.category}</Text>
-              )}
-              {appointment.service.price && (
-                <Text style={styles.servicePrice}>Price: ${appointment.service.price}</Text>
-              )}
-            </View>
-          </View>
-
-          {/* Customer */}
-          <View style={styles.section}>
-            <View style={styles.sectionTitleRow}>
-              <Icon name="person" size={18} color="#1890ff" style={{marginTop: -10}}/>
-              <Text style={styles.sectionTitle}>Customer</Text>
-            </View>
-            <View style={styles.infoCard}>
-              <Text style={styles.customerName}>{appointment.customerName}</Text>
-              
-              {appointment.customerPhone && (
-                <TouchableOpacity style={styles.contactRow} onPress={handleCall}>
-                  <Icon name="call" size={18} color="#1890ff" style={styles.contactIcon} />
-                  <Text style={styles.contactText}>{appointment.customerPhone}</Text>
-                  <Text style={styles.contactAction}>Call</Text>
-                </TouchableOpacity>
-              )}
-              
-              {appointment.customerEmail && (
-                <TouchableOpacity style={styles.contactRow} onPress={handleEmail}>
-                  <Icon name="mail" size={18} color="#1890ff" style={styles.contactIcon} />
-                  <Text style={styles.contactText}>{appointment.customerEmail}</Text>
-                  <Text style={styles.contactAction}>Email</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-
-          {/* Customer Notes */}
-          {appointment.customerNotes && (
+            {/* Metadata */}
             <View style={styles.section}>
               <View style={styles.sectionTitleRow}>
-                <Icon name="document-text" size={18} color="#1890ff" style={{marginTop: -10}}/>
-                <Text style={styles.sectionTitle}>Customer Notes</Text>
+                <Icon
+                  name="information-circle"
+                  size={18}
+                  color="#1890ff"
+                  style={{ marginTop: -10 }}
+                />
+                <Text style={styles.sectionTitle}>Information</Text>
               </View>
-              <View style={styles.notesCard}>
-                <Text style={styles.notesText}>{appointment.customerNotes}</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Internal Notes */}
-          {appointment.internalNotes && (
-            <View style={styles.section}>
-              <View style={styles.sectionTitleRow}>
-                <Icon name="lock-closed" size={18} color="#1890ff" style={{marginTop: -10}}/>
-                <Text style={styles.sectionTitle}>Internal Notes</Text>
-              </View>
-              <View style={[styles.notesCard, styles.internalNotesCard]}>
-                <Text style={styles.notesText}>{appointment.internalNotes}</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Change Status */}
-          <View style={styles.section}>
-            <View style={styles.sectionTitleRow}>
-              <Icon name="refresh" size={18} color="#1890ff" style={{marginTop: -10}} />
-              <Text style={styles.sectionTitle}>Change Status</Text>
-            </View>
-            {updatingStatus ? (
-              <ActivityIndicator size="small" color="#1890ff" />
-            ) : (
-              <View style={styles.statusButtons}>
-                {STATUS_OPTIONS.map((status) => {
-                  const isActive = appointment.status === status.key;
-                  const statusColor = STATUS_COLORS[status.key];
-                  return (
-                  <TouchableOpacity
-                    key={status.key}
-                    style={[
-                      styles.statusButton,
-                     isActive && styles.statusButtonActive,
-                      isActive && {backgroundColor: statusColor, border: statusColor}
-                    ]}
-                    onPress={() => handleStatusChange(status.key)}
-                    disabled={appointment.status === status.key}
-                  >
-                    <Icon name={status.iconName} size={20} color={!isActive ? '#eee' : "#fff"} style={styles.statusButtonIcon} />
-                    <Text style={[
-                      styles.statusButtonText,
-                      appointment.status === status.key && styles.statusButtonTextActive,
-                      isActive && {color: '#fff'}
-                    ]}>
-                      {status.label}
-                    </Text>
-                  </TouchableOpacity>
-                )})}
-              </View>
-            )}
-          </View>
-
-          {/* Metadata */}
-          <View style={styles.section}>
-            <View style={styles.sectionTitleRow}>
-              <Icon name="information-circle" size={18} color="#1890ff" style={{marginTop: -10}} />
-              <Text style={styles.sectionTitle}>Information</Text>
-            </View>
-            <View style={styles.metaCard}>
-              <Text style={styles.metaText}>
-                Created: {format(new Date(appointment.createdAt), 'MMM dd, yyyy h:mm a')}
-              </Text>
-              <Text style={styles.metaText}>
-                Updated: {format(new Date(appointment.updatedAt), 'MMM dd, yyyy h:mm a')}
-              </Text>
-              {appointment.canceledAt && (
-                <Text style={[styles.metaText, { color: '#f5222d' }]}>
-                  Canceled: {format(new Date(appointment.canceledAt), 'MMM dd, yyyy h:mm a')}
+              <View style={styles.metaCard}>
+                <Text style={styles.metaText}>
+                  Created:{' '}
+                  {format(
+                    new Date(appointment.createdAt),
+                    'MMM dd, yyyy h:mm a',
+                  )}
                 </Text>
-              )}
+                <Text style={styles.metaText}>
+                  Updated:{' '}
+                  {format(
+                    new Date(appointment.updatedAt),
+                    'MMM dd, yyyy h:mm a',
+                  )}
+                </Text>
+                {appointment.canceledAt && (
+                  <Text style={[styles.metaText, { color: '#f5222d' }]}>
+                    Canceled:{' '}
+                    {format(
+                      new Date(appointment.canceledAt),
+                      'MMM dd, yyyy h:mm a',
+                    )}
+                  </Text>
+                )}
+              </View>
             </View>
-          </View>
 
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      </View>
-    </Modal>
-  );
-});
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        </View>
+      </Modal>
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -446,7 +582,6 @@ const styles = StyleSheet.create({
     borderTopColor: '#f0f0f0',
   },
   contactIcon: {
-
     marginRight: 12,
   },
   contactText: {

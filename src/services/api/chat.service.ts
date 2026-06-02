@@ -57,10 +57,15 @@ class ChatService {
   /**
    * Get all conversations (matches web admin)
    */
-  async getConversations(status: 'OPEN' | 'CLOSED' | 'ARCHIVED' = 'OPEN'): Promise<ConversationPreview[]> {
+  async getConversations(
+    status: 'OPEN' | 'CLOSED' | 'ARCHIVED' = 'OPEN',
+  ): Promise<ConversationPreview[]> {
     console.log('🔄 chatService.getConversations() - status:', status);
     const response = await apiClient.get(`/v1/admin/chats?status=${status}`);
-    console.log('✅ chatService.getConversations() - Count:', response.data.conversations?.length || 0);
+    console.log(
+      '✅ chatService.getConversations() - Count:',
+      response.data.conversations?.length || 0,
+    );
     return response.data.conversations || [];
   }
 
@@ -70,15 +75,27 @@ class ChatService {
   async getConversationById(chatId: string): Promise<ConversationDetail> {
     console.log('🔄 chatService.getConversationById() - chatId:', chatId);
     const response = await apiClient.get(`/v1/admin/chats/${chatId}`);
-    console.log('✅ chatService.getConversationById() - Messages:', response.data.conversation?.messages?.length || 0);
+    console.log(
+      '✅ chatService.getConversationById() - Messages:',
+      response.data.conversation?.messages?.length || 0,
+    );
     return response.data.conversation;
   }
 
   /**
    * Send a reply (matches web admin)
    */
-  async sendReply(chatId: string, content: string, agentId: string): Promise<ChatMessage> {
-    console.log('📤 chatService.sendReply() - chatId:', chatId, 'agentId:', agentId);
+  async sendReply(
+    chatId: string,
+    content: string,
+    agentId: string,
+  ): Promise<ChatMessage> {
+    console.log(
+      '📤 chatService.sendReply() - chatId:',
+      chatId,
+      'agentId:',
+      agentId,
+    );
     const response = await apiClient.post(`/v1/admin/chats/${chatId}/reply`, {
       content,
       agentId,
@@ -90,7 +107,10 @@ class ChatService {
   /**
    * Update conversation mode (AI_ACTIVE, HUMAN_TAKEOVER, AI_PAUSED)
    */
-  async updateMode(chatId: string, mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED'): Promise<void> {
+  async updateMode(
+    chatId: string,
+    mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED',
+  ): Promise<void> {
     console.log('🔄 chatService.updateMode() - chatId:', chatId, 'mode:', mode);
     await apiClient.patch(`/v1/admin/chats/${chatId}/mode`, { mode });
     console.log('✅ chatService.updateMode() - Success');
@@ -100,7 +120,10 @@ class ChatService {
    * Claim conversation (assign to current agent)
    */
   async claimConversation(conversationId: string): Promise<void> {
-    console.log('🔄 chatService.claimConversation() - conversationId:', conversationId);
+    console.log(
+      '🔄 chatService.claimConversation() - conversationId:',
+      conversationId,
+    );
     await apiClient.post('/v1/agent/conversations/claim', { conversationId });
     console.log('✅ chatService.claimConversation() - Success');
   }
@@ -109,7 +132,10 @@ class ChatService {
    * Release conversation (unassign from current agent)
    */
   async releaseConversation(conversationId: string): Promise<void> {
-    console.log('🔄 chatService.releaseConversation() - conversationId:', conversationId);
+    console.log(
+      '🔄 chatService.releaseConversation() - conversationId:',
+      conversationId,
+    );
     await apiClient.post('/v1/agent/conversations/release', { conversationId });
     console.log('✅ chatService.releaseConversation() - Success');
   }
@@ -117,7 +143,9 @@ class ChatService {
   /**
    * Update agent status
    */
-  async updateAgentStatus(status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'AWAY'): Promise<void> {
+  async updateAgentStatus(
+    status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'AWAY',
+  ): Promise<void> {
     console.log('🔄 chatService.updateAgentStatus() - status:', status);
     await apiClient.put('/v1/agent/status', { status });
     console.log('✅ chatService.updateAgentStatus() - Success');
@@ -126,10 +154,16 @@ class ChatService {
   /**
    * Get all agents with status
    */
-  async getAgentsWithStatus(): Promise<{ agents: any[]; currentStatus: string }> {
+  async getAgentsWithStatus(): Promise<{
+    agents: any[];
+    currentStatus: string;
+  }> {
     console.log('🔄 chatService.getAgentsWithStatus()');
     const response = await apiClient.get('/v1/agent/all');
-    console.log('✅ chatService.getAgentsWithStatus() - Count:', response.data.agents?.length || 0);
+    console.log(
+      '✅ chatService.getAgentsWithStatus() - Count:',
+      response.data.agents?.length || 0,
+    );
     return response.data;
   }
 
@@ -137,7 +171,10 @@ class ChatService {
    * Close conversation (requires chats:close permission)
    */
   async closeConversation(conversationId: string): Promise<void> {
-    console.log('🔄 chatService.closeConversation() - conversationId:', conversationId);
+    console.log(
+      '🔄 chatService.closeConversation() - conversationId:',
+      conversationId,
+    );
     await apiClient.post(`/v1/admin/chats/${conversationId}/close`);
     console.log('✅ chatService.closeConversation() - Success');
   }

@@ -54,7 +54,9 @@ class WebSocketService {
     this.destroyed = false;
 
     // Convert HTTP URL to WebSocket URL
-    const wsBaseUrl = apiBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+    const wsBaseUrl = apiBaseUrl
+      .replace('http://', 'ws://')
+      .replace('https://', 'wss://');
     const wsUrl = `${wsBaseUrl}/ws`;
 
     console.log('🔌 Connecting to WebSocket:', wsUrl);
@@ -75,26 +77,26 @@ class WebSocketService {
         }
       };
 
-      this.ws.onmessage = (event) => {
+      this.ws.onmessage = event => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
           console.log('📨 WebSocket message:', message.type);
-          
+
           // Notify all handlers
-          this.messageHandlers.forEach((handler) => handler(message));
+          this.messageHandlers.forEach(handler => handler(message));
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error);
         }
       };
 
-      this.ws.onerror = (error) => {
+      this.ws.onerror = error => {
         console.error('❌ WebSocket error:', error);
       };
 
       this.ws.onclose = () => {
         console.log('🔌 WebSocket closed');
         this.ws = null;
-        
+
         // Auto-reconnect after 5 seconds if not destroyed
         if (!this.destroyed) {
           console.log('🔄 Reconnecting in 5 seconds...');
@@ -115,17 +117,17 @@ class WebSocketService {
    */
   disconnect() {
     this.destroyed = true;
-    
+
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    
+
     if (this.ws) {
       this.ws.close();
       this.ws = null;
     }
-    
+
     console.log('🔌 WebSocket disconnected');
   }
 
@@ -134,7 +136,7 @@ class WebSocketService {
    */
   subscribe(handler: MessageHandler): () => void {
     this.messageHandlers.push(handler);
-    
+
     // Return unsubscribe function
     return () => {
       const index = this.messageHandlers.indexOf(handler);

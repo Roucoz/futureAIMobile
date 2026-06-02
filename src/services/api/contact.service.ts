@@ -81,7 +81,10 @@ class ContactService {
     });
 
     const response = await apiClient.get(`/v1/admin/contacts?${queryParams}`);
-    console.log('✅ contactService.getContacts() - Count:', response.data.contacts?.length || 0);
+    console.log(
+      '✅ contactService.getContacts() - Count:',
+      response.data.contacts?.length || 0,
+    );
 
     // Sort on client side if needed (backend may not support all sort options yet)
     let contacts = response.data.contacts || [];
@@ -93,7 +96,9 @@ class ContactService {
           const nameB = (b.name || b.phoneNumber).toLowerCase();
           compareValue = nameA.localeCompare(nameB);
         } else if (sortBy === 'lastContactedAt') {
-          compareValue = new Date(a.lastContactedAt).getTime() - new Date(b.lastContactedAt).getTime();
+          compareValue =
+            new Date(a.lastContactedAt).getTime() -
+            new Date(b.lastContactedAt).getTime();
         } else if (sortBy === 'totalConversations') {
           compareValue = a.totalConversations - b.totalConversations;
         }
@@ -116,16 +121,25 @@ class ContactService {
   async getContactById(contactId: string): Promise<ContactDetail> {
     console.log('🔄 contactService.getContactById() - contactId:', contactId);
     const response = await apiClient.get(`/v1/admin/contacts/${contactId}`);
-    console.log('✅ contactService.getContactById() - Contact:', response.data.name);
+    console.log(
+      '✅ contactService.getContactById() - Contact:',
+      response.data.name,
+    );
     return response.data;
   }
 
   /**
    * Update contact information
    */
-  async updateContact(contactId: string, data: Partial<Contact>): Promise<Contact> {
+  async updateContact(
+    contactId: string,
+    data: Partial<Contact>,
+  ): Promise<Contact> {
     console.log('🔄 contactService.updateContact() - contactId:', contactId);
-    const response = await apiClient.patch(`/v1/admin/contacts/${contactId}`, data);
+    const response = await apiClient.patch(
+      `/v1/admin/contacts/${contactId}`,
+      data,
+    );
     console.log('✅ contactService.updateContact() - Updated');
     return response.data.contact;
   }
@@ -133,11 +147,22 @@ class ContactService {
   /**
    * Get conversations for a specific contact
    */
-  async getContactConversations(contactId: string, phoneNumber: string): Promise<any[]> {
-    console.log('🔄 contactService.getContactConversations() - phoneNumber:', phoneNumber);
+  async getContactConversations(
+    contactId: string,
+    phoneNumber: string,
+  ): Promise<any[]> {
+    console.log(
+      '🔄 contactService.getContactConversations() - phoneNumber:',
+      phoneNumber,
+    );
     // Use the chats endpoint with visitorId filter
-    const response = await apiClient.get(`/v1/admin/chats?visitorId=${encodeURIComponent(phoneNumber)}`);
-    console.log('✅ contactService.getContactConversations() - Count:', response.data.conversations?.length || 0);
+    const response = await apiClient.get(
+      `/v1/admin/chats?visitorId=${encodeURIComponent(phoneNumber)}`,
+    );
+    console.log(
+      '✅ contactService.getContactConversations() - Count:',
+      response.data.conversations?.length || 0,
+    );
     return response.data.conversations || [];
   }
 
@@ -145,10 +170,18 @@ class ContactService {
    * Get tickets for a specific contact
    */
   async getContactTickets(contactId: string): Promise<any[]> {
-    console.log('🔄 contactService.getContactTickets() - contactId:', contactId);
+    console.log(
+      '🔄 contactService.getContactTickets() - contactId:',
+      contactId,
+    );
     try {
-      const response = await apiClient.get(`/v1/admin/tickets?contactId=${contactId}`);
-      console.log('✅ contactService.getContactTickets() - Count:', response.data.tickets?.length || 0);
+      const response = await apiClient.get(
+        `/v1/admin/tickets?contactId=${contactId}`,
+      );
+      console.log(
+        '✅ contactService.getContactTickets() - Count:',
+        response.data.tickets?.length || 0,
+      );
       return response.data.tickets || [];
     } catch (error: any) {
       // Return empty array if tickets module is not enabled or endpoint doesn't exist
@@ -163,13 +196,22 @@ class ContactService {
   /**
    * Initiate a new conversation with a contact
    */
-  async startConversation(phoneNumber: string, channel: 'WHATSAPP' | 'WIDGET' = 'WIDGET'): Promise<{ conversationId: string }> {
-    console.log('🔄 contactService.startConversation() - phoneNumber:', phoneNumber);
+  async startConversation(
+    phoneNumber: string,
+    channel: 'WHATSAPP' | 'WIDGET' = 'WIDGET',
+  ): Promise<{ conversationId: string }> {
+    console.log(
+      '🔄 contactService.startConversation() - phoneNumber:',
+      phoneNumber,
+    );
     const response = await apiClient.post('/v1/admin/conversations/initiate', {
       visitorId: phoneNumber,
       channel,
     });
-    console.log('✅ contactService.startConversation() - conversationId:', response.data.conversationId);
+    console.log(
+      '✅ contactService.startConversation() - conversationId:',
+      response.data.conversationId,
+    );
     return response.data;
   }
 }

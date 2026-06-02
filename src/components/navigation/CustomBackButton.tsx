@@ -13,7 +13,10 @@ interface CustomBackButtonProps {
   onPress?: () => void;
 }
 
-const CustomBackButton: React.FC<CustomBackButtonProps> = ({ tintColor = '#1890ff', onPress }) => {
+const CustomBackButton: React.FC<CustomBackButtonProps> = ({
+  tintColor = '#1890ff',
+  onPress,
+}) => {
   const navigation = useNavigation();
 
   const handlePress = () => {

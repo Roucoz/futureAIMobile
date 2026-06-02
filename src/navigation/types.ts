@@ -26,7 +26,11 @@ export type ChatStackParamList = {
 export type ContactsStackParamList = {
   ContactsList: undefined;
   ContactDetail: { contact: Contact };
-  ContactConversations: { contactId: string; contactName: string; conversations: any[] };
+  ContactConversations: {
+    contactId: string;
+    contactName: string;
+    conversations: any[];
+  };
   ContactTickets: { contactId: string; contactName: string; tickets: any[] };
   CreateTicket: { conversationId: string };
 };

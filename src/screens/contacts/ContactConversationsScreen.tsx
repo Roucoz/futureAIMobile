@@ -31,7 +31,10 @@ interface RouteParams {
   conversations: Conversation[];
 }
 
-type NavigationProp = StackNavigationProp<ContactsStackParamList, 'ContactConversations'>;
+type NavigationProp = StackNavigationProp<
+  ContactsStackParamList,
+  'ContactConversations'
+>;
 
 const ContactConversationsScreen = () => {
   const navigation = useNavigation<NavigationProp>();
@@ -48,19 +51,28 @@ const ContactConversationsScreen = () => {
 
   const renderConversation = ({ item }: { item: Conversation }) => {
     const date = new Date(item.updatedAt).toLocaleDateString();
-    const time = new Date(item.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const time = new Date(item.updatedAt).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
     return (
       <TouchableOpacity
         style={styles.conversationCard}
         onPress={() => handleConversationPress(item.id)}
-        activeOpacity={0.7}>
+        activeOpacity={0.7}
+      >
         <View style={styles.conversationHeader}>
           <View style={styles.statusBadge}>
             <Text style={styles.statusText}>{item.status}</Text>
           </View>
           <View style={styles.channelRow}>
-            <Icon name="call" size={14} color="#666" style={{ marginRight: 4 }} />
+            <Icon
+              name="call"
+              size={14}
+              color="#666"
+              style={{ marginRight: 4 }}
+            />
             <Text style={styles.channelText}>{item.channel}</Text>
           </View>
         </View>
@@ -85,11 +97,16 @@ const ContactConversationsScreen = () => {
         <FlatList
           data={conversations}
           renderItem={renderConversation}
-          keyExtractor={(item) => item.id}
+          keyExtractor={item => item.id}
           contentContainerStyle={styles.listContainer}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Icon name="chatbubbles" size={64} color="#d9d9d9" style={styles.emptyIcon} />
+              <Icon
+                name="chatbubbles"
+                size={64}
+                color="#d9d9d9"
+                style={styles.emptyIcon}
+              />
               <Text style={styles.emptyText}>No conversations found</Text>
             </View>
           }
@@ -180,7 +197,6 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyIcon: {
-
     marginBottom: 12,
   },
   emptyText: {

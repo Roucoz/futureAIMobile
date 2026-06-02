@@ -14,7 +14,15 @@ import {
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { useAppointment } from '../../stores';
-import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay, parseISO } from 'date-fns';
+import {
+  format,
+  startOfWeek,
+  addDays,
+  addWeeks,
+  subWeeks,
+  isSameDay,
+  parseISO,
+} from 'date-fns';
 
 interface WeekViewScreenProps {
   onAppointmentPress: (appointment: any) => void;
@@ -29,148 +37,160 @@ const STATUS_COLORS: Record<string, string> = {
   NO_SHOW: '#8c8c8c',
 };
 
-const WeekViewScreen = observer(({ onAppointmentPress, onAddAppointment }: WeekViewScreenProps) => {
-  const appointmentStore = useAppointment();
-  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 0 }));
-  const [refreshing, setRefreshing] = useState(false);
-
-  useEffect(() => {
-    loadAppointments();
-  }, []);
-
-  const loadAppointments = async () => {
-    try {
-      await appointmentStore.fetchAppointments();
-    } catch (error) {
-      console.error('Failed to load appointments:', error);
-    }
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadAppointments();
-    setRefreshing(false);
-  };
-
-  const goToPreviousWeek = () => {
-    setCurrentWeekStart(subWeeks(currentWeekStart, 1));
-  };
-
-  const goToNextWeek = () => {
-    setCurrentWeekStart(addWeeks(currentWeekStart, 1));
-  };
-
-  const goToToday = () => {
-    setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
-  };
-
-  // Generate week days
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
-
-  // Get appointments for a specific day
-  const getAppointmentsForDay = (date: Date) => {
-    return appointmentStore.filteredAppointments.filter((apt) =>
-      isSameDay(parseISO(apt.appointmentDate), date)
+const WeekViewScreen = observer(
+  ({ onAppointmentPress, onAddAppointment }: WeekViewScreenProps) => {
+    const appointmentStore = useAppointment();
+    const [currentWeekStart, setCurrentWeekStart] = useState(
+      startOfWeek(new Date(), { weekStartsOn: 0 }),
     );
-  };
+    const [refreshing, setRefreshing] = useState(false);
 
-  const renderDayColumn = (date: Date) => {
-    const appointments = getAppointmentsForDay(date);
-    const isToday = isSameDay(date, new Date());
+    useEffect(() => {
+      loadAppointments();
+    }, []);
+
+    const loadAppointments = async () => {
+      try {
+        await appointmentStore.fetchAppointments();
+      } catch (error) {
+        console.error('Failed to load appointments:', error);
+      }
+    };
+
+    const onRefresh = async () => {
+      setRefreshing(true);
+      await loadAppointments();
+      setRefreshing(false);
+    };
+
+    const goToPreviousWeek = () => {
+      setCurrentWeekStart(subWeeks(currentWeekStart, 1));
+    };
+
+    const goToNextWeek = () => {
+      setCurrentWeekStart(addWeeks(currentWeekStart, 1));
+    };
+
+    const goToToday = () => {
+      setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
+    };
+
+    // Generate week days
+    const weekDays = Array.from({ length: 7 }, (_, i) =>
+      addDays(currentWeekStart, i),
+    );
+
+    // Get appointments for a specific day
+    const getAppointmentsForDay = (date: Date) => {
+      return appointmentStore.filteredAppointments.filter(apt =>
+        isSameDay(parseISO(apt.appointmentDate), date),
+      );
+    };
+
+    const renderDayColumn = (date: Date) => {
+      const appointments = getAppointmentsForDay(date);
+      const isToday = isSameDay(date, new Date());
+
+      return (
+        <View key={date.toISOString()} style={styles.dayColumn}>
+          {/* Day Header */}
+          <View style={[styles.dayHeader, isToday && styles.todayHeader]}>
+            <Text style={[styles.dayName, isToday && styles.todayText]}>
+              {format(date, 'EEE')}
+            </Text>
+            <Text style={[styles.dayNumber, isToday && styles.todayText]}>
+              {format(date, 'd')}
+            </Text>
+          </View>
+
+          {/* Appointments for this day */}
+          <ScrollView
+            style={styles.dayContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {appointments.length === 0 ? (
+              <TouchableOpacity
+                style={styles.emptyDay}
+                onPress={() => onAddAppointment(date)}
+              >
+                <Text style={styles.emptyDayText}>+</Text>
+              </TouchableOpacity>
+            ) : (
+              appointments.map(apt => (
+                <TouchableOpacity
+                  key={apt.id}
+                  style={[
+                    styles.appointmentCard,
+                    { borderLeftColor: STATUS_COLORS[apt.status] },
+                  ]}
+                  onPress={() => onAppointmentPress(apt)}
+                >
+                  <Text style={styles.appointmentTime}>
+                    {format(parseISO(apt.appointmentDate), 'h:mm a')}
+                  </Text>
+                  <Text style={styles.appointmentCustomer} numberOfLines={1}>
+                    {apt.customerName}
+                  </Text>
+                  <Text style={styles.appointmentService} numberOfLines={1}>
+                    {apt.service.name}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
+
+            {/* Add button for days with appointments */}
+            {appointments.length > 0 && (
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => onAddAppointment(date)}
+              >
+                <Text style={styles.addButtonText}>+ Add</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+      );
+    };
 
     return (
-      <View key={date.toISOString()} style={styles.dayColumn}>
-        {/* Day Header */}
-        <View style={[styles.dayHeader, isToday && styles.todayHeader]}>
-          <Text style={[styles.dayName, isToday && styles.todayText]}>
-            {format(date, 'EEE')}
-          </Text>
-          <Text style={[styles.dayNumber, isToday && styles.todayText]}>
-            {format(date, 'd')}
-          </Text>
+      <View style={styles.container}>
+        {/* Week Navigation */}
+        <View style={styles.navigation}>
+          <TouchableOpacity style={styles.navButton} onPress={goToPreviousWeek}>
+            <Text style={styles.navButtonText}>←</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.todayButton} onPress={goToToday}>
+            <Text style={styles.weekTitle}>
+              {format(currentWeekStart, 'MMM d')} -{' '}
+              {format(addDays(currentWeekStart, 6), 'MMM d, yyyy')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.navButton} onPress={goToNextWeek}>
+            <Text style={styles.navButtonText}>→</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Appointments for this day */}
-        <ScrollView style={styles.dayContent} showsVerticalScrollIndicator={false}>
-          {appointments.length === 0 ? (
-            <TouchableOpacity
-              style={styles.emptyDay}
-              onPress={() => onAddAppointment(date)}
-            >
-              <Text style={styles.emptyDayText}>+</Text>
-            </TouchableOpacity>
-          ) : (
-            appointments.map((apt) => (
-              <TouchableOpacity
-                key={apt.id}
-                style={[
-                  styles.appointmentCard,
-                  { borderLeftColor: STATUS_COLORS[apt.status] },
-                ]}
-                onPress={() => onAppointmentPress(apt)}
-              >
-                <Text style={styles.appointmentTime}>
-                  {format(parseISO(apt.appointmentDate), 'h:mm a')}
-                </Text>
-                <Text style={styles.appointmentCustomer} numberOfLines={1}>
-                  {apt.customerName}
-                </Text>
-                <Text style={styles.appointmentService} numberOfLines={1}>
-                  {apt.service.name}
-                </Text>
-              </TouchableOpacity>
-            ))
-          )}
-          
-          {/* Add button for days with appointments */}
-          {appointments.length > 0 && (
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => onAddAppointment(date)}
-            >
-              <Text style={styles.addButtonText}>+ Add</Text>
-            </TouchableOpacity>
-          )}
+        {/* Week Grid */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.weekScroll}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#1890ff']}
+            />
+          }
+        >
+          <View style={styles.weekGrid}>{weekDays.map(renderDayColumn)}</View>
         </ScrollView>
       </View>
     );
-  };
-
-  return (
-    <View style={styles.container}>
-      {/* Week Navigation */}
-      <View style={styles.navigation}>
-        <TouchableOpacity style={styles.navButton} onPress={goToPreviousWeek}>
-          <Text style={styles.navButtonText}>←</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.todayButton} onPress={goToToday}>
-          <Text style={styles.weekTitle}>
-            {format(currentWeekStart, 'MMM d')} - {format(addDays(currentWeekStart, 6), 'MMM d, yyyy')}
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.navButton} onPress={goToNextWeek}>
-          <Text style={styles.navButtonText}>→</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Week Grid */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.weekScroll}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1890ff']} />
-        }
-      >
-        <View style={styles.weekGrid}>
-          {weekDays.map(renderDayColumn)}
-        </View>
-      </ScrollView>
-    </View>
-  );
-});
+  },
+);
 
 const styles = StyleSheet.create({
   container: {

@@ -33,7 +33,6 @@ const STATUS_COLORS: Record<string, string> = {
   COMPLETED: '#52c41a',
   CANCELED: '#f5222d',
   NO_SHOW: '#8c8c8c',
-  
 };
 
 // Status labels
@@ -502,7 +501,9 @@ const AppointmentsScreen = observer(() => {
               <View style={styles.dateFilterModal}>
                 {/* Header */}
                 <View style={styles.dateFilterHeader}>
-                  <Text style={styles.dateFilterTitle}>Appointments History</Text>
+                  <Text style={styles.dateFilterTitle}>
+                    Appointments History
+                  </Text>
                   <TouchableOpacity
                     onPress={() => setShowDateFilterModal(false)}
                   >
