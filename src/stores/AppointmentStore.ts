@@ -72,12 +72,23 @@ export const AppointmentStore = types
       if (self.dateRangeFrom || self.dateRangeTo) {
         filtered = filtered.filter((apt) => {
           const aptDate = new Date(apt.appointmentDate);
-          const fromDate = self.dateRangeFrom ? new Date(self.dateRangeFrom) : null;
-          const toDate = self.dateRangeTo ? new Date(self.dateRangeTo) : null;
+          const fromDate = self.dateRangeFrom
+            ? new Date(self.dateRangeFrom)
+            : null;
+          const toDate = self.dateRangeTo
+            ? new Date(self.dateRangeTo)
+            : null;
 
           if (fromDate && aptDate < fromDate) return false;
           if (toDate && aptDate > toDate) return false;
           return true;
+        });
+      } else {
+        // Default: only show today and future appointments (not past/due)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        filtered = filtered.filter((apt) => {
+          return new Date(apt.appointmentDate) >= today;
         });
       }
 
@@ -142,8 +153,31 @@ export const AppointmentStore = types
      * Get status count
      */
     getStatusCount(status: string) {
-      if (status === 'ALL') return self.appointments.length;
-      return self.appointments.filter((apt) => apt.status === status).length;
+      // Apply same default date filter (upcoming only) as filteredAppointments,
+      // but without the status filter so we count by status independently
+      let pool = self.appointments.slice();
+
+      if (self.dateRangeFrom || self.dateRangeTo) {
+        pool = pool.filter((apt) => {
+          const aptDate = new Date(apt.appointmentDate);
+          const fromDate = self.dateRangeFrom
+            ? new Date(self.dateRangeFrom)
+            : null;
+          const toDate = self.dateRangeTo
+            ? new Date(self.dateRangeTo)
+            : null;
+          if (fromDate && aptDate < fromDate) return false;
+          if (toDate && aptDate > toDate) return false;
+          return true;
+        });
+      } else {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        pool = pool.filter((apt) => new Date(apt.appointmentDate) >= today);
+      }
+
+      if (status === 'ALL') return pool.length;
+      return pool.filter((apt) => apt.status === status).length;
     },
   }))
   .actions((self) => ({
