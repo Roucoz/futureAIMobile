@@ -8,7 +8,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { observer } from 'mobx-react-lite';
 import { ActivityIndicator, View } from 'react-native';
-import { useAuth, useChat } from '../stores';
+import { useAuth, useChat, useAppointment } from '../stores';
 import { RootStackParamList } from './types';
 import { env } from '../config/env';
 
@@ -21,6 +21,7 @@ const Stack = createStackNavigator<RootStackParamList>();
 const RootNavigator = observer(() => {
   const authStore = useAuth();
   const chatStore = useChat();
+  const appointmentStore = useAppointment();
 
   // Initialize auth state on app load
   useEffect(() => {
@@ -32,14 +33,20 @@ const RootNavigator = observer(() => {
     if (authStore.isAuthenticated && authStore.token) {
       console.log('🔌 Connecting WebSocket...');
       chatStore.setupWebSocketConnection(env.API_BASE_URL, authStore.token);
+      appointmentStore.setupWebSocketConnection(
+        env.API_BASE_URL,
+        authStore.token,
+      );
     } else {
       console.log('🔌 Disconnecting WebSocket...');
       chatStore.disconnectWebSocket();
+      appointmentStore.disconnectWebSocket();
     }
 
     // Cleanup on unmount
     return () => {
       chatStore.disconnectWebSocket();
+      appointmentStore.disconnectWebSocket();
     };
   }, [authStore.isAuthenticated, authStore.token]);
 

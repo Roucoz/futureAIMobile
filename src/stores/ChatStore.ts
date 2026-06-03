@@ -540,6 +540,34 @@ export const ChatStore = types
             }
             break;
 
+          case 'conversation_closed':
+            // Reload conversations when a conversation is closed
+            self
+              .loadConversations()
+              .catch((err: any) => console.error('Failed to reload:', err));
+            if (
+              message.conversationId &&
+              self.selectedChatId === message.conversationId
+            ) {
+              self.selectedChatId = null;
+              self.conversationDetail = null;
+            }
+            break;
+
+          case 'conversation_assignment_changed':
+            // Reload conversations when assignment changes
+            self
+              .loadConversations()
+              .catch((err: any) => console.error('Failed to reload:', err));
+            if (self.selectedChatId === message.conversationId) {
+              self
+                .loadConversationDetail(message.conversationId)
+                .catch((err: any) =>
+                  console.error('Failed to reload detail:', err),
+                );
+            }
+            break;
+
           case 'typing_start':
             if (message.conversationId) {
               if (message.source === 'ai') {
@@ -566,6 +594,42 @@ export const ChatStore = types
                 .loadConversations()
                 .catch((err: any) => console.error('Failed to reload:', err));
             }
+            break;
+
+          case 'appointment_updated':
+            // Appointment changes may be linked to conversations (e.g., booking via chat)
+            // Reload conversations to reflect any changes
+            console.log(
+              '📅 Appointment update received, reloading conversations...',
+              message.action,
+            );
+            self
+              .loadConversations()
+              .catch((err: any) => console.error('Failed to reload:', err));
+            break;
+
+          case 'agent_status_changed':
+            // Update current agent status from WebSocket event
+            if (message.status) {
+              console.log(
+                '🟢 Agent status changed via WebSocket:',
+                message.agentName,
+                '→',
+                message.status,
+              );
+              self.currentAgentStatus = message.status;
+            }
+            break;
+
+          case 'ws_reconnected':
+            // WebSocket reconnected - reload fresh data
+            console.log('🔌 ChatStore: WS reconnected, reloading data...');
+            self
+              .loadConversations()
+              .catch((err: any) => console.error('Failed to reload:', err));
+            self
+              .fetchAgentStatus()
+              .catch((err: any) => console.error('Failed to fetch status:', err));
             break;
 
           default:

@@ -11,6 +11,7 @@ import {
   CreateAppointmentDto,
   UpdateAppointmentDto,
 } from '../services/api/appointments.service';
+import { websocketService } from '../services/websocket/WebSocketService';
 
 // Service model
 export const ServiceModel = types.model('Service', {
@@ -176,11 +177,14 @@ export const AppointmentStore = types
       return pool.filter(apt => apt.status === status).length;
     },
   }))
-  .actions(self => ({
+  .volatile(() => ({
+    websocketUnsubscribe: null as (() => void) | null,
+  }))
+  .actions(self => {
     /**
      * Fetch all appointments (always fetch ALL, filter locally)
      */
-    fetchAppointments: flow(function* () {
+    const fetchAppointments = flow(function* () {
       self.loading = true;
       self.error = null;
 
@@ -198,35 +202,35 @@ export const AppointmentStore = types
         self.error = error.message || 'Failed to load appointments';
         self.loading = false;
       }
-    }),
+    });
 
     /**
      * Set status filter
      */
-    setStatusFilter(status: string) {
+    const setStatusFilter = (status: string) => {
       self.selectedStatus = status;
-    },
+    };
 
     /**
      * Set date range filter
      */
-    setDateRange(from: string | null, to: string | null) {
+    const setDateRange = (from: string | null, to: string | null) => {
       self.dateRangeFrom = from;
       self.dateRangeTo = to;
-    },
+    };
 
     /**
      * Clear date range filter
      */
-    clearDateRange() {
+    const clearDateRange = () => {
       self.dateRangeFrom = null;
       self.dateRangeTo = null;
-    },
+    };
 
     /**
      * Fetch today's appointments
      */
-    fetchTodayAppointments: flow(function* () {
+    const fetchTodayAppointments = flow(function* () {
       self.loading = true;
       self.error = null;
 
@@ -243,12 +247,12 @@ export const AppointmentStore = types
         self.error = error.message || 'Failed to load appointments';
         self.loading = false;
       }
-    }),
+    });
 
     /**
      * Update appointment status
      */
-    updateAppointmentStatus: flow(function* (
+    const updateAppointmentStatus = flow(function* (
       appointmentId: string,
       status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW',
     ) {
@@ -273,12 +277,12 @@ export const AppointmentStore = types
         );
         throw error;
       }
-    }),
+    });
 
     /**
      * Reschedule appointment
      */
-    rescheduleAppointment: flow(function* (
+    const rescheduleAppointment = flow(function* (
       appointmentId: string,
       newDate: string,
     ) {
@@ -303,12 +307,12 @@ export const AppointmentStore = types
         );
         throw error;
       }
-    }),
+    });
 
     /**
      * Create new appointment
      */
-    createAppointment: flow(function* (data: CreateAppointmentDto) {
+    const createAppointment = flow(function* (data: CreateAppointmentDto) {
       self.loading = true;
       self.error = null;
 
@@ -330,12 +334,12 @@ export const AppointmentStore = types
         self.loading = false;
         throw error;
       }
-    }),
+    });
 
     /**
      * Update appointment (full update)
      */
-    updateAppointment: flow(function* (
+    const updateAppointment = flow(function* (
       appointmentId: string,
       data: UpdateAppointmentDto,
     ) {
@@ -359,12 +363,12 @@ export const AppointmentStore = types
         );
         throw error;
       }
-    }),
+    });
 
     /**
      * Fetch services
      */
-    fetchServices: flow(function* () {
+    const fetchServices = flow(function* () {
       try {
         const services: ServiceType[] = yield appointmentsService.getServices();
         self.services = cast(services);
@@ -372,25 +376,93 @@ export const AppointmentStore = types
         console.error('❌ AppointmentStore.fetchServices() - ERROR:', error);
         throw error;
       }
-    }),
+    });
+
+    /**
+     * Handle WebSocket message for appointment events
+     */
+    const handleWebSocketUpdate = (message: any) => {
+      if (
+        message.type !== 'appointment_updated' &&
+        message.type !== 'ws_reconnected'
+      )
+        return;
+
+
+      try {
+        // Reload appointments from server to get full data
+        fetchAppointments().catch((err: any) =>
+          console.error('Failed to reload appointments:', err),
+        );
+      } catch (error) {
+        console.error('Error handling appointment WebSocket message:', error);
+      }
+    };
 
     /**
      * Clear error
      */
-    clearError() {
+    const clearError = () => {
       self.error = null;
-    },
+    };
 
     /**
      * Reset store
      */
-    reset() {
+    const reset = () => {
       self.appointments = cast([]);
       self.services = cast([]);
       self.loading = false;
       self.error = null;
       self.selectedStatus = null;
+    };
+
+    return {
+      fetchAppointments,
+      setStatusFilter,
+      setDateRange,
+      clearDateRange,
+      fetchTodayAppointments,
+      updateAppointmentStatus,
+      rescheduleAppointment,
+      createAppointment,
+      updateAppointment,
+      fetchServices,
+      handleWebSocketUpdate,
+      clearError,
+      reset,
+    };
+  })
+  .actions(self => ({
+    /**
+     * Setup WebSocket connection for appointment events
+     */
+    setupWebSocketConnection(apiBaseUrl: string, token: string) {
+      console.log('🔌 AppointmentStore: Setting up WebSocket');
+
+      // Disconnect any existing
+      if (self.websocketUnsubscribe) {
+        self.websocketUnsubscribe();
+        self.websocketUnsubscribe = null;
+      }
+
+      // Subscribe to WebSocket messages (shared connection)
+      const unsubscribe = websocketService.subscribe(message => {
+        self.handleWebSocketUpdate(message);
+      });
+
+      self.websocketUnsubscribe = unsubscribe;
+    },
+
+    /**
+     * Disconnect WebSocket
+     */
+    disconnectWebSocket() {
+      if (self.websocketUnsubscribe) {
+        self.websocketUnsubscribe();
+        self.websocketUnsubscribe = null;
+      }
     },
   }));
 
-export interface IAppointmentStore extends Instance<typeof AppointmentStore> {}
+export interface IAppointmentStore extends Instance<typeof AppointmentStore> { }

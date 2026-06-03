@@ -3,7 +3,7 @@
  * View and manage appointments
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,11 @@ import {
   Modal,
   Platform,
   ScrollView,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
+import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppointment } from '../../stores';
 import { format } from 'date-fns';
@@ -25,6 +28,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import AppointmentFormModal from './AppointmentFormModal';
 import AppointmentDetailsModal from './AppointmentDetailsModal';
 import WeekViewScreen from './WeekViewScreen';
+import { websocketService } from '../../services/websocket/WebSocketService';
 
 // Status colors
 const STATUS_COLORS: Record<string, string> = {
@@ -75,6 +79,7 @@ const AppointmentsScreen = observer(() => {
   const [tempFromDate, setTempFromDate] = useState<Date>(new Date());
   const [tempToDate, setTempToDate] = useState<Date>(new Date());
   const [activePicker, setActivePicker] = useState<'from' | 'to' | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const loadAppointments = useCallback(async () => {
     try {
@@ -85,14 +90,68 @@ const AppointmentsScreen = observer(() => {
     }
   }, [appointmentStore]);
 
+  // Keep a stable ref for foreground listener
+  const loadAppointmentsRef = useRef(loadAppointments);
+  loadAppointmentsRef.current = loadAppointments;
+
+  // Reload appointments every time the tab gets focus
+  useFocusEffect(
+    useCallback(() => {
+      appointmentStore
+        .fetchAppointments()
+        .then(() => setRefreshKey(k => k + 1))
+        .catch(err => console.error('Failed to reload:', err));
+    }, [appointmentStore]),
+  );
+
   useEffect(() => {
     loadAppointments();
   }, [loadAppointments]);
 
+  // Reload appointments when app returns to foreground
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        appointmentStore
+          .fetchAppointments()
+          .then(() => setRefreshKey(k => k + 1))
+          .catch(err => console.error('Failed to reload:', err));
+      }
+    };
+    const subscription = AppState.addEventListener(
+      'change',
+      handleAppStateChange,
+    );
+    return () => subscription.remove();
+  }, []);
+
+  // WebSocket: listen for appointment updates and reconnect events
+  useEffect(() => {
+    const unsubscribe = websocketService.subscribe(message => {
+      if (
+        message.type === 'appointment_updated' ||
+        message.type === 'ws_reconnected'
+      ) {
+        // Reload data first, THEN force re-render
+        appointmentStore
+          .fetchAppointments()
+          .then(() => setRefreshKey(k => k + 1))
+          .catch(err => console.error('Failed to reload appointments:', err));
+      }
+    });
+    return unsubscribe;
+  }, []); // Stable - no deps needed, appointmentStore is stable MST reference
+
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadAppointments();
-    setRefreshing(false);
+    try {
+      await appointmentStore.fetchAppointments();
+      setRefreshKey(k => k + 1);
+    } catch (err) {
+      console.error('Failed to reload:', err);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleStatusFilter = (status: string) => {
@@ -262,7 +321,10 @@ const AppointmentsScreen = observer(() => {
   };
 
   const handleFormSuccess = () => {
-    loadAppointments();
+    appointmentStore
+      .fetchAppointments()
+      .then(() => setRefreshKey(k => k + 1))
+      .catch(err => console.error('Failed to reload:', err));
   };
 
   const renderEmpty = () => {
@@ -450,6 +512,7 @@ const AppointmentsScreen = observer(() => {
       {viewMode === 'list' ? (
         <FlatList
           data={appointmentStore.filteredAppointments}
+          extraData={refreshKey}
           keyExtractor={item => item.id}
           renderItem={renderAppointmentCard}
           ListEmptyComponent={renderEmpty}

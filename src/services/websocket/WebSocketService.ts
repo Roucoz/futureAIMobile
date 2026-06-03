@@ -5,33 +5,69 @@
 
 type WebSocketMessage =
   | {
-      type: 'conversation_updated';
-      conversation: any;
-      newMessage?: any;
-    }
+    type: 'conversation_updated';
+    conversation: any;
+    newMessage?: any;
+  }
   | {
-      type: 'conversation_mode_updated';
-      conversationId: string;
-      mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED';
-    }
+    type: 'conversation_mode_updated';
+    conversationId: string;
+    mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED';
+  }
   | {
-      type: 'typing_start';
-      conversationId: string;
-      source: 'ai' | 'visitor';
-    }
+    type: 'typing_start';
+    conversationId: string;
+    source: 'ai' | 'visitor';
+  }
   | {
-      type: 'typing_stop';
-      conversationId: string;
-      source: 'ai' | 'visitor';
-    }
+    type: 'typing_stop';
+    conversationId: string;
+    source: 'ai' | 'visitor';
+  }
   | {
-      type: 'escalation_request';
-      conversationId: string;
-      visitorId: string;
-      suggestedAgent?: string | null;
-      reason?: string;
-      timestamp: string;
+    type: 'escalation_request';
+    conversationId: string;
+    visitorId: string;
+    suggestedAgent?: string | null;
+    reason?: string;
+    timestamp: string;
+  }
+  | {
+    type: 'conversation_closed';
+    conversationId: string;
+  }
+  | {
+    type: 'conversation_assignment_changed';
+    conversationId: string;
+    visitorId: string;
+    assignedToMemberId: string | null;
+    assignedToMemberName?: string;
+    action: 'claimed' | 'released';
+    timestamp: string;
+  }
+  | {
+    type: 'agent_status_changed';
+    agentId: string;
+    agentName: string;
+    status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'AWAY';
+    timestamp: string;
+  }
+  | {
+    type: 'appointment_updated';
+    action: 'created' | 'updated' | 'canceled' | 'status_changed';
+    appointment: {
+      id: string;
+      customerName: string;
+      appointmentDate: string;
+      status: string;
+      serviceName?: string;
+      durationMinutes?: number;
     };
+    timestamp: string;
+  }
+  | {
+    type: 'ws_reconnected';
+  };
 
 type MessageHandler = (message: WebSocketMessage) => void;
 
@@ -75,6 +111,10 @@ class WebSocketService {
             }),
           );
         }
+        // Notify handlers that WebSocket reconnected so they can reload data
+        this.messageHandlers.forEach(handler =>
+          handler({ type: 'ws_reconnected' } as WebSocketMessage),
+        );
       };
 
       this.ws.onmessage = event => {

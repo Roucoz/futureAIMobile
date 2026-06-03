@@ -3,7 +3,7 @@
  * Shows KPI cards for agent metrics + upcoming appointments
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,12 @@ import {
   Switch,
   RefreshControl,
   Alert,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { AppTabParamList } from '../../navigation/types';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -25,6 +27,7 @@ import {
   appointmentsService,
   Appointment,
 } from '../../services/api/appointments.service';
+import { websocketService } from '../../services/websocket/WebSocketService';
 
 type DashboardNavigationProp = BottomTabNavigationProp<
   AppTabParamList,
@@ -153,9 +156,48 @@ const DashboardScreen = observer(() => {
     }
   }, [chatStore]);
 
+  // Keep a ref to loadDashboardData so WebSocket subscription is stable
+  const loadDashboardDataRef = useRef(loadDashboardData);
+  loadDashboardDataRef.current = loadDashboardData;
+
+  // Reload dashboard data every time the tab gets focus
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboardDataRef.current();
+    }, []),
+  );
+
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  // WebSocket: listen for appointment & agent status updates to refresh dashboard
+  useEffect(() => {
+    const unsubscribe = websocketService.subscribe(message => {
+      if (
+        message.type === 'appointment_updated' ||
+        message.type === 'agent_status_changed' ||
+        message.type === 'ws_reconnected'
+      ) {
+        loadDashboardDataRef.current();
+      }
+    });
+    return unsubscribe;
+  }, []); // Stable subscription - uses ref for callback
+
+  // Reload data when app returns to foreground
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        loadDashboardDataRef.current();
+      }
+    };
+    const subscription = AppState.addEventListener(
+      'change',
+      handleAppStateChange,
+    );
+    return () => subscription.remove();
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
