@@ -47,7 +47,10 @@ class AuthService {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
 
     try {
-      const response = await apiClient.post('/v1/auth/login', credentials);
+      const response = await apiClient.post('/v1/auth/login', {
+        ...credentials,
+        clientType: 'mobile',
+      });
 
       return response.data;
     } catch (error) {
@@ -70,6 +73,7 @@ class AuthService {
     const response = await apiClient.post('/v1/auth/login/2fa-complete', {
       userId,
       code,
+      clientType: 'mobile',
     });
     return response.data;
   }

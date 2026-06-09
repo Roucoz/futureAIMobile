@@ -67,6 +67,12 @@ type WebSocketMessage =
   }
   | {
     type: 'ws_reconnected';
+  }
+  | {
+    type: 'session_terminated';
+    reason: string;
+    message: string;
+    timestamp: string;
   };
 
 type MessageHandler = (message: WebSocketMessage) => void;
@@ -107,7 +113,7 @@ class WebSocketService {
           this.ws.send(
             JSON.stringify({
               type: 'subscribe_admin',
-              payload: { token: this.token },
+              payload: { token: this.token, clientType: 'mobile' },
             }),
           );
         }

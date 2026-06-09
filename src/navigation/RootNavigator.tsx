@@ -10,6 +10,7 @@ import { observer } from 'mobx-react-lite';
 import { ActivityIndicator, View } from 'react-native';
 import { useAuth, useChat, useAppointment } from '../stores';
 import { notificationService } from '../services/notifications/NotificationService';
+import { websocketService } from '../services/websocket/WebSocketService';
 import { RootStackParamList } from './types';
 import { env } from '../config/env';
 
@@ -29,6 +30,18 @@ const RootNavigator = observer(() => {
   useEffect(() => {
     authStore.initialize();
   }, []);
+
+  // Listen for session_terminated WebSocket events (forced logout)
+  useEffect(() => {
+    const unsubscribe = websocketService.subscribe(message => {
+      if (message.type === 'session_terminated') {
+        console.log('🚫 Session terminated by server:', message.message);
+        authStore.logout();
+      }
+    });
+
+    return unsubscribe;
+  }, [authStore]);
 
   // Connect/disconnect WebSocket and push notifications based on auth status
   useEffect(() => {
