@@ -599,10 +599,6 @@ export const ChatStore = types
           case 'appointment_updated':
             // Appointment changes may be linked to conversations (e.g., booking via chat)
             // Reload conversations to reflect any changes
-            console.log(
-              '📅 Appointment update received, reloading conversations...',
-              message.action,
-            );
             self
               .loadConversations()
               .catch((err: any) => console.error('Failed to reload:', err));
@@ -611,19 +607,12 @@ export const ChatStore = types
           case 'agent_status_changed':
             // Update current agent status from WebSocket event
             if (message.status) {
-              console.log(
-                '🟢 Agent status changed via WebSocket:',
-                message.agentName,
-                '→',
-                message.status,
-              );
               self.currentAgentStatus = message.status;
             }
             break;
 
           case 'ws_reconnected':
             // WebSocket reconnected - reload fresh data
-            console.log('🔌 ChatStore: WS reconnected, reloading data...');
             self
               .loadConversations()
               .catch((err: any) => console.error('Failed to reload:', err));

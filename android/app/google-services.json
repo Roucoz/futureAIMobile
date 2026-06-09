@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "536108047692",
+    "project_id": "futureai-fa39c",
+    "storage_bucket": "futureai-fa39c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:536108047692:android:886ee332a304ecbf5d83e9",
+        "android_client_info": {
+          "package_name": "com.futureaimobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDBplVXAF9f8A8rHacFpIFA4rFjz2RaoM0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

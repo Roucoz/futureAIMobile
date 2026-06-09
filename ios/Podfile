@@ -17,6 +17,9 @@ end
 target 'FutureAIMobile' do
   config = use_native_modules!
 
+  # Required for Firebase Swift pods to work as static libraries
+  use_modular_headers!
+
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.

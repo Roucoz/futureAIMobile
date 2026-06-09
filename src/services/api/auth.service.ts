@@ -45,20 +45,19 @@ class AuthService {
    * Login with email and password
    */
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
-    console.log('🔐 Login request:', {
-      email: credentials.email,
-      passwordLength: credentials.password.length,
-      hasWhitespace: credentials.password !== credentials.password.trim(),
-    });
 
-    const response = await apiClient.post('/v1/auth/login', credentials);
+    try {
+      const response = await apiClient.post('/v1/auth/login', credentials);
 
-    console.log('✅ Login response:', {
-      hasToken: !!response.data.token,
-      requiresTwoFactor: response.data.requiresTwoFactor,
-    });
-
-    return response.data;
+      return response.data;
+    } catch (error) {
+      console.error('❌ authService.login() - Error:', {
+        status: error.status,
+        message: error.message,
+        data: error.data,
+      });
+      throw error;
+    }
   }
 
   /**

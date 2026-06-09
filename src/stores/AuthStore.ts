@@ -183,6 +183,10 @@ export const AuthStore = types
      */
     logout: flow(function* () {
       try {
+        // Cleanup push notifications (unregister FCM token)
+        const { notificationService } = require('../services/notifications/NotificationService');
+        yield notificationService.cleanup();
+
         yield authService.logout();
         yield secureStorage.removeToken();
 
