@@ -48,7 +48,7 @@ const LoginScreen = observer(() => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to FutureAI</Text>
+      <Text style={styles.title}>Welcome to Tuxon</Text>
       <Text style={styles.subtitle}>Sign in to manage your conversations</Text>
 
       <TextInput

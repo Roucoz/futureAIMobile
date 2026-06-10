@@ -1,4 +1,5 @@
 import messaging from '@react-native-firebase/messaging';
+import notifee, { AndroidImportance } from '@notifee/react-native';
 import { Platform, PermissionsAndroid } from 'react-native';
 import apiClient from '../api/client';
 
@@ -64,7 +65,7 @@ class NotificationService {
   /**
    * Initialize push notifications: request permission, get FCM token, register with backend
    */
-  async initialize(userId: string): Promise<void> {
+  async initialize(_userId: string): Promise<void> {
     if (this.initialized) {
       console.log('🔔 Notifications already initialized');
       return;
@@ -183,11 +184,44 @@ class NotificationService {
     messaging().onMessage(async remoteMessage => {
       console.log('📬 Foreground notification:', remoteMessage);
 
-      const type = remoteMessage.data?.type;
+      // FCM data values can be `string | object`; we only use string values
+      const rawData = remoteMessage.data as Record<string, string> | undefined;
+      const type = rawData?.type;
+
+      // Session terminated: show notification then force logout
       if (type === 'session_terminated') {
-        console.log('🚪 Session terminated — logging out');
-        // Notify all registered callbacks (e.g. AuthStore)
+        console.log('🚪 Session terminated — showing notification then logging out');
+
+        // Show notification before logout
+        const notification = remoteMessage.notification;
+        if (notification?.title || notification?.body) {
+          await displayLocalNotification(
+            notification.title || '',
+            notification.body || '',
+            rawData,
+          );
+        }
+
+        // Small delay so the notification has time to appear
+        await new Promise<void>(resolve => setTimeout(resolve, 300));
+
         this.sessionTerminatedCallbacks.forEach(cb => cb());
+        return;
+      }
+
+      if (rawData?.showInForeground === 'false') {
+        console.log('🔇 Notification suppressed in foreground:', type);
+        return;
+      }
+
+      // Show local notification for all other types
+      const notification = remoteMessage.notification;
+      if (notification?.title || notification?.body) {
+        await displayLocalNotification(
+          notification.title || '',
+          notification.body || '',
+          rawData,
+        );
       }
     });
   }
@@ -207,3 +241,42 @@ class NotificationService {
 
 // Singleton
 export const notificationService = new NotificationService();
+
+/**
+ * Display a local notification via notifee when the app is in the foreground.
+ * FCM does not auto-display notifications in the foreground, so we use notifee
+ * to show a heads-up / system notification that looks identical to a background push.
+ */
+async function displayLocalNotification(
+  title: string,
+  body: string,
+  data?: Record<string, string | undefined>,
+): Promise<void> {
+  try {
+    // Create / reuse a channel (Android)
+    let channelId = 'default';
+    if (Platform.OS === 'android') {
+      channelId = await notifee.createChannel({
+        id: 'default',
+        name: 'Notifications',
+        importance: AndroidImportance.HIGH,
+      });
+    }
+
+    await notifee.displayNotification({
+      title,
+      body,
+      data: data as Record<string, string>,
+      android: {
+        channelId,
+        pressAction: { id: 'default' },
+        importance: AndroidImportance.HIGH,
+      },
+      ios: {
+        sound: 'default',
+      },
+    });
+  } catch (error) {
+    console.error('❌ Failed to display local notification:', error);
+  }
+}

@@ -2052,6 +2052,11 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - RNNotifee (9.1.8):
+    - React-Core
+    - RNNotifee/NotifeeCore (= 9.1.8)
+  - RNNotifee/NotifeeCore (9.1.8):
+    - React-Core
   - RNScreens (4.25.2):
     - hermes-engine
     - RCTRequired
@@ -2205,6 +2210,7 @@ DEPENDENCIES:
   - "RNFBMessaging (from `../node_modules/@react-native-firebase/messaging`)"
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - RNKeychain (from `../node_modules/react-native-keychain`)
+  - "RNNotifee (from `../node_modules/@notifee/react-native`)"
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNVectorIcons (from `../node_modules/react-native-vector-icons`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
@@ -2384,6 +2390,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-gesture-handler"
   RNKeychain:
     :path: "../node_modules/react-native-keychain"
+  RNNotifee:
+    :path: "../node_modules/@notifee/react-native"
   RNScreens:
     :path: "../node_modules/react-native-screens"
   RNVectorIcons:
@@ -2482,6 +2490,7 @@ SPEC CHECKSUMS:
   RNFBMessaging: af337b6d79482aa646ab264992518a6e0b378ebb
   RNGestureHandler: acf7db8499c11193d9b4b6b1cc1439ff4f01a693
   RNKeychain: 1b055a0ec36d058cb0a075e965d8c9d335e0c828
+  RNNotifee: 4a6ee5c7deaf00e005050052d73ee6315dff7ec9
   RNScreens: 032083414633a4d94cbcf08f8ab5019d72d1ba36
   RNVectorIcons: 9d52f79c911eb6099a14b8135bd261ccef039fcb
   Yoga: 36fee8f1fca3f54a28c3d7f80e69f66d73d3af96
