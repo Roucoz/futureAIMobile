@@ -35,11 +35,18 @@ export type ContactsStackParamList = {
   CreateTicket: { conversationId: string };
 };
 
+// Ticket Stack Params
+export type TicketStackParamList = {
+  TicketList: undefined;
+  TicketDetail: { ticketId: string };
+};
+
 // App Navigator Params (Bottom Tabs)
 export type AppTabParamList = {
   Dashboard: undefined;
   ChatStack: NavigatorScreenParams<ChatStackParamList>;
   Appointments: undefined;
+  TicketStack: NavigatorScreenParams<TicketStackParamList>;
   ContactsStack: NavigatorScreenParams<ContactsStackParamList>;
   Profile: undefined;
 };
@@ -60,6 +67,6 @@ export type RootStackParamList = {
 // Type helpers for navigation props
 declare global {
   namespace ReactNavigation {
-    interface RootParamList extends RootStackParamList {}
+    interface RootParamList extends RootStackParamList { }
   }
 }

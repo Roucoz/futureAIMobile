@@ -7,15 +7,41 @@ import apiClient from './client';
 
 export interface Ticket {
   id: string;
-  title: string;
-  description: string;
+  summary: string;
+  description: string | null;
   status: string;
   priority: string;
-  assignedToId: string | null;
-  assignedTo: { id: string; name: string } | null;
+  category: string | null;
+  assignedToMember: {
+    id: string;
+    displayName: string | null;
+  } | null;
+  createdByMember: {
+    id: string;
+    displayName: string | null;
+  };
+  customer: {
+    id: string;
+    name: string | null;
+    phoneNumber: string;
+    email: string | null;
+  } | null;
   conversationId: string | null;
   createdAt: string;
   updatedAt: string;
+  closedAt: string | null;
+}
+
+export interface TicketPagination {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface GetTicketsResult {
+  tickets: Ticket[];
+  pagination: TicketPagination;
 }
 
 export interface TicketStatus {
@@ -26,48 +52,103 @@ export interface TicketStatus {
   order: number;
 }
 
+export interface TicketStatus {
+  id: string;
+  name: string;
+  color: string | null;
+  sortOrder: number;
+  isDefault: boolean;
+  isActive: boolean;
+}
+
+export interface UpdateTicketData {
+  summary?: string;
+  description?: string;
+  status?: string;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  category?: string;
+  assignedToMemberId?: string;
+}
+
+export interface TicketDetail extends Ticket {
+  notes: TicketNote[];
+  statusHistory: TicketStatusHistory[];
+  _count: { notes: number };
+}
+
+export interface TicketNote {
+  id: string;
+  content: string;
+  isInternal: boolean;
+  createdAt: string;
+  author: {
+    id: string;
+    displayName: string | null;
+    user: { email: string; firstName: string | null; lastName: string | null };
+  };
+}
+
+export interface TicketStatusHistory {
+  id: string;
+  fromStatus: string;
+  toStatus: string;
+  createdAt: string;
+  changedByMember: {
+    id: string;
+    displayName: string | null;
+  } | null;
+}
+
 export interface CreateTicketData {
-  title: string;
-  description: string;
+  summary: string;
+  description?: string;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-  statusId?: string;
-  assignedToId?: string;
+  status?: string;
+  assignedToMemberId?: string;
   conversationId?: string;
 }
 
 class TicketService {
   /**
-   * Get all tickets
+   * Get tickets with pagination and filters
    */
-  async getTickets(status?: string): Promise<Ticket[]> {
-    console.log('🔄 ticketService.getTickets() - status:', status);
-    const params = status ? `?status=${status}` : '';
-    const response = await apiClient.get(`/v1/admin/tickets${params}`);
-    console.log(
-      '✅ ticketService.getTickets() - Count:',
-      response.data.tickets?.length || 0,
-    );
-    return response.data.tickets || [];
+  async getTickets(params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<GetTicketsResult> {
+    const queryParams = new URLSearchParams();
+    if (params?.status) queryParams.set('status', params.status);
+    if (params?.page) queryParams.set('page', String(params.page));
+    if (params?.limit) queryParams.set('limit', String(params.limit));
+
+    const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    const response = await apiClient.get(`/v1/admin/tickets${query}`);
+    return {
+      tickets: response.data.data || [],
+      pagination: response.data.pagination || {
+        total: 0,
+        page: 1,
+        limit: 20,
+        totalPages: 0,
+      },
+    };
   }
 
   /**
-   * Get ticket by ID
+   * Get ticket by ID (full detail)
    */
-  async getTicketById(ticketId: string): Promise<Ticket> {
-    console.log('🔄 ticketService.getTicketById() - ticketId:', ticketId);
+  async getTicketById(ticketId: string): Promise<TicketDetail> {
     const response = await apiClient.get(`/v1/admin/tickets/${ticketId}`);
-    console.log('✅ ticketService.getTicketById() - Success');
-    return response.data.ticket;
+    return response.data.data;
   }
 
   /**
    * Create a new ticket
    */
   async createTicket(data: CreateTicketData): Promise<Ticket> {
-    console.log('📤 ticketService.createTicket() - data:', data);
     const response = await apiClient.post('/v1/admin/tickets', data);
-    console.log('✅ ticketService.createTicket() - Success');
-    return response.data.ticket;
+    return response.data.data;
   }
 
   /**
@@ -75,38 +156,15 @@ class TicketService {
    */
   async createTicketFromConversation(
     conversationId: string,
-    title: string,
+    summary: string,
     description: string,
     priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT',
   ): Promise<Ticket> {
-    console.log(
-      '📤 ticketService.createTicketFromConversation() - conversationId:',
-      conversationId,
-    );
     const response = await apiClient.post(
       '/v1/admin/tickets/from-conversation',
-      {
-        conversationId,
-        title,
-        description,
-        priority,
-      },
+      { conversationId, summary, description, priority },
     );
-    console.log('✅ ticketService.createTicketFromConversation() - Success');
-    return response.data.ticket;
-  }
-
-  /**
-   * Get ticket statuses
-   */
-  async getTicketStatuses(): Promise<TicketStatus[]> {
-    console.log('🔄 ticketService.getTicketStatuses()');
-    const response = await apiClient.get('/v1/admin/tickets/statuses');
-    console.log(
-      '✅ ticketService.getTicketStatuses() - Count:',
-      response.data.statuses?.length || 0,
-    );
-    return response.data.statuses || [];
+    return response.data.data;
   }
 
   /**
@@ -114,24 +172,28 @@ class TicketService {
    */
   async updateTicket(
     ticketId: string,
-    data: Partial<CreateTicketData>,
+    data: UpdateTicketData,
   ): Promise<Ticket> {
-    console.log('📤 ticketService.updateTicket() - ticketId:', ticketId);
     const response = await apiClient.patch(
       `/v1/admin/tickets/${ticketId}`,
       data,
     );
-    console.log('✅ ticketService.updateTicket() - Success');
-    return response.data.ticket;
+    return response.data.data;
   }
 
   /**
    * Close ticket
    */
-  async closeTicket(ticketId: string): Promise<void> {
-    console.log('📤 ticketService.closeTicket() - ticketId:', ticketId);
-    await apiClient.post(`/v1/admin/tickets/${ticketId}/close`);
-    console.log('✅ ticketService.closeTicket() - Success');
+  async closeTicket(ticketId: string, note?: string): Promise<void> {
+    await apiClient.post(`/v1/admin/tickets/${ticketId}/close`, { note });
+  }
+
+  /**
+   * Get custom statuses for project
+   */
+  async getCustomStatuses(): Promise<TicketStatus[]> {
+    const response = await apiClient.get('/v1/admin/tickets/statuses/custom');
+    return response.data.data || [];
   }
 }
 

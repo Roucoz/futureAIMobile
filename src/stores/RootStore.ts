@@ -7,12 +7,13 @@ import { types, Instance } from 'mobx-state-tree';
 import { AuthStore } from './AuthStore';
 import { ChatStore } from './ChatStore';
 import { AppointmentStore } from './AppointmentStore';
+import { TicketStore } from './TicketStore';
 
 export const RootStore = types.model('RootStore', {
   auth: AuthStore,
   chat: ChatStore,
   appointment: AppointmentStore,
-  // TODO: Add NotificationStore
+  ticket: TicketStore,
 });
 
 // Create root store instance
@@ -21,6 +22,7 @@ export function createRootStore() {
     auth: {},
     chat: {},
     appointment: {},
+    ticket: {},
   });
 }
 

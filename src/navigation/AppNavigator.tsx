@@ -11,20 +11,10 @@ import { AppTabParamList } from './types';
 // Import navigators and screens
 import ChatNavigator from './ChatNavigator';
 import ContactsNavigator from './ContactsNavigator';
+import TicketNavigator from './TicketNavigator';
 import DashboardScreen from '../screens/dashboard/DashboardScreen';
 import AppointmentsScreen from '../screens/appointments/AppointmentsScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
-
-// Placeholder screens
-import { View, Text, StyleSheet } from 'react-native';
-
-// Temporary placeholder screen
-const PlaceholderScreen = ({ title }: { title: string }) => (
-  <View style={styles.container}>
-    <Text style={styles.title}>{title}</Text>
-    <Text style={styles.note}>Screen coming soon</Text>
-  </View>
-);
 
 const Tab = createBottomTabNavigator<AppTabParamList>();
 
@@ -72,6 +62,16 @@ const AppNavigator = () => {
         }}
       />
       <Tab.Screen
+        name="TicketStack"
+        component={TicketNavigator}
+        options={{
+          title: 'Tickets',
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="ticket" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
         name="ContactsStack"
         component={ContactsNavigator}
         options={{
@@ -94,25 +94,5 @@ const AppNavigator = () => {
     </Tab.Navigator>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f9',
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  note: {
-    fontSize: 14,
-    color: '#999',
-    fontStyle: 'italic',
-  },
-});
 
 export default AppNavigator;

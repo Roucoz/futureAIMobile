@@ -29,7 +29,7 @@ const CreateTicketScreen = () => {
   const chatStore = useChat();
   const { conversationId } = route.params;
 
-  const [title, setTitle] = useState('');
+  const [summary, setSummary] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<
     'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
@@ -42,7 +42,7 @@ const CreateTicketScreen = () => {
       c => c.id === conversationId,
     );
     if (conversation) {
-      setTitle(
+      setSummary(
         `Support request from ${
           conversation.customerName || conversation.visitorId
         }`,
@@ -58,8 +58,8 @@ const CreateTicketScreen = () => {
   }, [conversationId]);
 
   const handleCreate = async () => {
-    if (!title.trim()) {
-      Alert.alert('Error', 'Please enter a title');
+    if (!summary.trim()) {
+      Alert.alert('Error', 'Please enter a summary');
       return;
     }
 
@@ -72,7 +72,7 @@ const CreateTicketScreen = () => {
     try {
       await ticketService.createTicketFromConversation(
         conversationId,
-        title.trim(),
+        summary.trim(),
         description.trim(),
         priority,
       );
@@ -101,14 +101,14 @@ const CreateTicketScreen = () => {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.sectionTitle}>Create Ticket from Conversation</Text>
 
-      {/* Title */}
+      {/* Summary */}
       <View style={styles.field}>
-        <Text style={styles.label}>Title *</Text>
+        <Text style={styles.label}>Summary *</Text>
         <TextInput
           style={styles.input}
-          value={title}
-          onChangeText={setTitle}
-          placeholder="Enter ticket title"
+          value={summary}
+          onChangeText={setSummary}
+          placeholder="Enter ticket summary"
           placeholderTextColor="#999"
         />
       </View>

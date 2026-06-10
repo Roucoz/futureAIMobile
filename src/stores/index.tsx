@@ -58,4 +58,12 @@ export const useAppointment = () => {
   return appointment;
 };
 
+/**
+ * Hook to access ticket store
+ */
+export const useTickets = () => {
+  const { ticket } = useStore();
+  return ticket;
+};
+
 export default StoreProvider;
