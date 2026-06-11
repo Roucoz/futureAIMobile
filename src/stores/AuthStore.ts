@@ -23,6 +23,7 @@ export const UserModel = types
     projectId: types.string,
     role: types.string,
     twoFactorEnabled: types.boolean,
+    avatarUrl: types.maybeNull(types.string),
     createdAt: types.maybeNull(types.string),
   })
   .views(self => ({
@@ -73,6 +74,7 @@ export const AuthStore = types
             projectId: response.project.id,
             role: response.role,
             twoFactorEnabled: response.user.twoFactorEnabled,
+            avatarUrl: response.user.avatarUrl || null,
             createdAt: response.user.createdAt || null,
           });
 
@@ -114,6 +116,7 @@ export const AuthStore = types
             projectId: response.project.id,
             role: response.role,
             twoFactorEnabled: response.user.twoFactorEnabled,
+            avatarUrl: response.user.avatarUrl || null,
             createdAt: response.user.createdAt || null,
           });
 
@@ -160,6 +163,7 @@ export const AuthStore = types
             projectId: response.project.id,
             role: response.role,
             twoFactorEnabled: response.user.twoFactorEnabled,
+            avatarUrl: response.user.avatarUrl || null,
             createdAt: response.user.createdAt || null,
           });
 

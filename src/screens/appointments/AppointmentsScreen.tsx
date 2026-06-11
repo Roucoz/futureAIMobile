@@ -28,6 +28,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import AppointmentFormModal from './AppointmentFormModal';
 import AppointmentDetailsModal from './AppointmentDetailsModal';
 import WeekViewScreen from './WeekViewScreen';
+import ScreenBackground from '../../components/common/ScreenBackground';
 import { websocketService } from '../../services/websocket/WebSocketService';
 
 // Status colors
@@ -356,7 +357,7 @@ const AppointmentsScreen = observer(() => {
   };
 
   return (
-    <View style={styles.container}>
+    <ScreenBackground>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -762,14 +763,14 @@ const AppointmentsScreen = observer(() => {
         onEdit={handleEditAppointment}
         onSuccess={handleFormSuccess}
       />
-    </View>
+    </ScreenBackground>
   );
 });
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f9',
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',

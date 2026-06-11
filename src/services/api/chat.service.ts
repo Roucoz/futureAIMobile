@@ -42,6 +42,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   senderType: 'visitor' | 'bot' | 'agent';
   senderName: string | null;
+  senderAvatarUrl: string | null;
   content: string;
   createdAt: string;
   agentMemberId: string | null;

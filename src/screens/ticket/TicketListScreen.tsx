@@ -21,6 +21,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTickets } from '../../stores';
 import { websocketService } from '../../services/websocket/WebSocketService';
+import ScreenBackground from '../../components/common/ScreenBackground';
 import { format } from 'date-fns';
 import { TicketModel } from '../../stores/TicketStore';
 import { Instance } from 'mobx-state-tree';
@@ -230,6 +231,7 @@ const TicketListScreen = observer(() => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <ScreenBackground>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -291,6 +293,7 @@ const TicketListScreen = observer(() => {
           />
         )}
       </View>
+      </ScreenBackground>
     </SafeAreaView>
   );
 });
@@ -302,7 +305,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f9',
+    backgroundColor: 'transparent',
   },
   header: {
     padding: 20,

@@ -10,11 +10,14 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../../stores';
+import { resolveImageUrl } from '../../utils/imageUrl';
+import ScreenBackground from '../../components/common/ScreenBackground';
 import { format } from 'date-fns';
 
 const ProfileScreen = observer(() => {
@@ -37,103 +40,116 @@ const ProfileScreen = observer(() => {
       </View>
     </View>
   );
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
-          <Text style={styles.subtitle}>Account Information</Text>
-        </View>
+      <ScreenBackground>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Profile</Text>
+            <Text style={styles.subtitle}>Account Information</Text>
+          </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Profile Card */}
-          <View style={styles.card}>
-            {/* Avatar Circle */}
-            <View style={styles.avatarContainer}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {authStore.user?.firstName?.[0]?.toUpperCase()}
-                  {authStore.user?.lastName?.[0]?.toUpperCase()}
-                </Text>
+          <ScrollView
+            style={styles.content}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Profile Card */}
+            <View style={styles.card}>
+              {/* Avatar Circle */}
+              <View style={styles.avatarContainer}>
+                {authStore.user?.avatarUrl ? (
+                  <Image
+                    source={{ uri: resolveImageUrl(authStore.user.avatarUrl)! }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {authStore.user?.firstName?.[0]?.toUpperCase()}
+                      {authStore.user?.lastName?.[0]?.toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.fullName}>{authStore.user?.fullName}</Text>
+                <View style={styles.roleBadge}>
+                  <Text style={styles.roleText}>{authStore.user?.role}</Text>
+                </View>
               </View>
-              <Text style={styles.fullName}>{authStore.user?.fullName}</Text>
-              <View style={styles.roleBadge}>
-                <Text style={styles.roleText}>{authStore.user?.role}</Text>
-              </View>
-            </View>
 
-            {/* Info Rows */}
-            <View style={styles.infoContainer}>
-              <InfoRow
-                iconName="mail"
-                label="Email"
-                value={authStore.user?.email || 'N/A'}
-              />
-
-              <InfoRow
-                iconName="person"
-                label="First Name"
-                value={authStore.user?.firstName || 'N/A'}
-              />
-
-              <InfoRow
-                iconName="person-outline"
-                label="Last Name"
-                value={authStore.user?.lastName || 'N/A'}
-              />
-
-              <InfoRow
-                iconName="business"
-                label="Project ID"
-                value={authStore.user?.projectId || 'N/A'}
-              />
-
-              {authStore.user?.createdAt && (
+              {/* Info Rows */}
+              <View style={styles.infoContainer}>
                 <InfoRow
-                  iconName="calendar"
-                  label="Member Since"
-                  value={format(
-                    new Date(authStore.user.createdAt),
-                    'MMM dd, yyyy',
-                  )}
+                  iconName="mail"
+                  label="Email"
+                  value={authStore.user?.email || 'N/A'}
                 />
-              )}
 
-              <InfoRow
-                iconName={
-                  authStore.user?.twoFactorEnabled ? 'lock-closed' : 'lock-open'
-                }
-                label="Two-Factor Auth"
-                value={
-                  authStore.user?.twoFactorEnabled ? 'Enabled' : 'Disabled'
-                }
-              />
+                <InfoRow
+                  iconName="person"
+                  label="First Name"
+                  value={authStore.user?.firstName || 'N/A'}
+                />
+
+                <InfoRow
+                  iconName="person-outline"
+                  label="Last Name"
+                  value={authStore.user?.lastName || 'N/A'}
+                />
+
+                <InfoRow
+                  iconName="business"
+                  label="Project ID"
+                  value={authStore.user?.projectId || 'N/A'}
+                />
+
+                {authStore.user?.createdAt && (
+                  <InfoRow
+                    iconName="calendar"
+                    label="Member Since"
+                    value={format(
+                      new Date(authStore.user.createdAt),
+                      'MMM dd, yyyy',
+                    )}
+                  />
+                )}
+
+                <InfoRow
+                  iconName={
+                    authStore.user?.twoFactorEnabled
+                      ? 'lock-closed'
+                      : 'lock-open'
+                  }
+                  label="Two-Factor Auth"
+                  value={
+                    authStore.user?.twoFactorEnabled ? 'Enabled' : 'Disabled'
+                  }
+                />
+              </View>
             </View>
-          </View>
 
-          {/* Actions */}
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={() => authStore.logout()}
-              activeOpacity={0.8}
-            >
-              <Icon
-                name="log-out"
-                size={20}
-                color="#fff"
-                style={styles.logoutIcon}
-              />
-              <Text style={styles.logoutText}>Logout</Text>
-            </TouchableOpacity>
-          </View>
+            {/* Actions */}
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={() => authStore.logout()}
+                activeOpacity={0.8}
+              >
+                <Icon
+                  name="log-out"
+                  size={20}
+                  color="#fff"
+                  style={styles.logoutIcon}
+                />
+                <Text style={styles.logoutText}>Logout</Text>
+              </TouchableOpacity>
+            </View>
 
-          {/* App Version */}
-          <Text style={styles.version}>Future AI Mobile v1.0.0</Text>
-        </ScrollView>
-      </View>
+            {/* App Version */}
+            <Text style={styles.version}>Future AI Mobile v1.0.0</Text>
+          </ScrollView>
+        </View>
+      </ScreenBackground>
     </SafeAreaView>
   );
 });
@@ -145,7 +161,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f9',
+    backgroundColor: 'transparent',
   },
   header: {
     backgroundColor: '#fff',
@@ -193,6 +209,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#1890ff',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 12,
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     marginBottom: 12,
   },
   avatarText: {

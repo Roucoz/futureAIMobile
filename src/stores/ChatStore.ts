@@ -17,6 +17,7 @@ export const ChatMessage = types.model('ChatMessage', {
   role: types.enumeration(['user', 'assistant', 'system']),
   senderType: types.enumeration(['visitor', 'bot', 'agent']),
   senderName: types.maybeNull(types.string),
+  senderAvatarUrl: types.maybeNull(types.string),
   content: types.string,
   createdAt: types.string,
   agentMemberId: types.maybeNull(types.string),

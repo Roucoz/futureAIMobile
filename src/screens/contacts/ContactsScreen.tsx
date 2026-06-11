@@ -21,6 +21,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ContactsStackParamList } from '../../navigation/types';
+import ScreenBackground from '../../components/common/ScreenBackground';
 import contactService, {
   Contact,
   GetContactsParams,
@@ -327,6 +328,7 @@ const ContactsScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <ScreenBackground>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -439,6 +441,7 @@ const ContactsScreen = () => {
           />
         )}
       </View>
+      </ScreenBackground>
     </SafeAreaView>
   );
 };
@@ -450,7 +453,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f9',
+    backgroundColor: 'transparent',
   },
   header: {
     padding: 20,

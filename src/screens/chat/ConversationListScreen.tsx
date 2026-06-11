@@ -17,6 +17,7 @@ import { observer } from 'mobx-react-lite';
 import { useNavigation } from '@react-navigation/native';
 import { useChat } from '../../stores';
 import ConversationCard from '../../components/chat/ConversationCard';
+import ScreenBackground from '../../components/common/ScreenBackground';
 
 const ConversationListScreen = observer(() => {
   const navigation = useNavigation();
@@ -191,6 +192,7 @@ const ConversationListScreen = observer(() => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <ScreenBackground>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -261,6 +263,7 @@ const ConversationListScreen = observer(() => {
           }
         />
       </View>
+      </ScreenBackground>
     </SafeAreaView>
   );
 });
@@ -272,7 +275,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f9',
+    backgroundColor: 'transparent',
   },
   header: {
     padding: 20,

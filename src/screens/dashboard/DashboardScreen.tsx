@@ -15,6 +15,7 @@ import {
   Alert,
   AppState,
   AppStateStatus,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
@@ -23,6 +24,8 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { AppTabParamList } from '../../navigation/types';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth, useChat } from '../../stores';
+import { resolveImageUrl } from '../../utils/imageUrl';
+import ScreenBackground from '../../components/common/ScreenBackground';
 import {
   appointmentsService,
   Appointment,
@@ -228,209 +231,233 @@ const DashboardScreen = observer(() => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView
-        style={styles.container}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Dashboard</Text>
-          <Text style={styles.headerSubtitle}>
-            Welcome, {authStore.user?.fullName}
-          </Text>
-        </View>
-
-        {/* Status Card */}
-        <View style={[styles.card, styles.statusCard]}>
-          <View style={styles.statusHeader}>
-            <View>
-              <Text style={styles.cardTitle}>Agent Status</Text>
-              <Text style={styles.statusText}>
-                {isOnline ? 'Online' : 'Offline'}
-              </Text>
+      <ScreenBackground>
+        <ScrollView
+          style={styles.container}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerRow}>
+              {authStore.user?.avatarUrl ? (
+                <Image
+                  source={{ uri: resolveImageUrl(authStore.user.avatarUrl)! }}
+                  style={styles.headerAvatar}
+                />
+              ) : (
+                <View style={styles.headerAvatarPlaceholder}>
+                  <Text style={styles.headerAvatarText}>
+                    {authStore.user?.firstName?.[0]?.toUpperCase()}
+                    {authStore.user?.lastName?.[0]?.toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <View>
+                <Text style={styles.headerTitle}>Dashboard</Text>
+                <Text style={styles.headerSubtitle}>
+                  Welcome, {authStore.user?.fullName}
+                </Text>
+              </View>
             </View>
-            <Switch
-              value={isOnline}
-              onValueChange={handleStatusToggle}
-              trackColor={{ false: '#d9d9d9', true: '#52c41a' }}
-              thumbColor="#fff"
-              ios_backgroundColor="#d9d9d9"
-              disabled={chatStore.isStatusLoading}
-            />
           </View>
-          <Text style={styles.statusDescription}>
-            {isOnline
-              ? 'You are available to receive chats'
-              : 'You will not receive new chats'}
-          </Text>
-        </View>
 
-        {/* KPI Cards Grid */}
-        <View style={styles.kpiGrid}>
-          {/* Open Chats */}
-          <TouchableOpacity
-            style={[styles.kpiCard, styles.kpiCardBlue]}
-            onPress={() =>
-              (navigation as any).navigate('ChatStack', {
-                screen: 'ConversationList',
-              })
-            }
-          >
-            <Text style={styles.kpiValue}>{openChatsCount}</Text>
-            <Text style={styles.kpiLabel}>Open Chats</Text>
-            <Icon
-              name="chatbubbles"
-              size={32}
-              color="#fff"
-              style={styles.kpiIcon}
-            />
-          </TouchableOpacity>
-
-          {/* Claimed Chats */}
-          <TouchableOpacity
-            style={[styles.kpiCard, styles.kpiCardGreen]}
-            onPress={() =>
-              (navigation as any).navigate('ChatStack', {
-                screen: 'ConversationList',
-              })
-            }
-          >
-            <Text style={styles.kpiValue}>{claimedChatsCount}</Text>
-            <Text style={styles.kpiLabel}>Claimed by You</Text>
-            <Icon name="person" size={32} color="#fff" style={styles.kpiIcon} />
-          </TouchableOpacity>
-
-          {/* Requires Attention */}
-          <TouchableOpacity
-            style={[styles.kpiCard, styles.kpiCardOrange]}
-            onPress={() =>
-              (navigation as any).navigate('ChatStack', {
-                screen: 'ConversationList',
-              })
-            }
-          >
-            <Text style={styles.kpiValue}>{requiresAttentionCount}</Text>
-            <Text style={styles.kpiLabel}>Needs Attention</Text>
-            <Icon
-              name="warning"
-              size={32}
-              color="#fff"
-              style={styles.kpiIcon}
-            />
-          </TouchableOpacity>
-
-          {/* AI Disabled */}
-          <TouchableOpacity style={[styles.kpiCard, styles.kpiCardPurple]}>
-            <Text style={styles.kpiValue}>{chatStore.aiDisabledCount}</Text>
-            <Text style={styles.kpiLabel}>AI Disabled</Text>
-            <Icon
-              name="pause-circle"
-              size={32}
-              color="#fff"
-              style={styles.kpiIcon}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* Upcoming Appointments */}
-        {appointmentsEnabled && (
-          <View style={styles.card}>
-            <View style={styles.cardTitleRow}>
-              <Icon
-                name="calendar"
-                size={20}
-                color="#1890ff"
-                style={styles.cardTitleIcon}
+          {/* Status Card */}
+          <View style={[styles.card, styles.statusCard]}>
+            <View style={styles.statusHeader}>
+              <View>
+                <Text style={styles.cardTitle}>Agent Status</Text>
+                <Text style={styles.statusText}>
+                  {isOnline ? 'Online' : 'Offline'}
+                </Text>
+              </View>
+              <Switch
+                value={isOnline}
+                onValueChange={handleStatusToggle}
+                trackColor={{ false: '#d9d9d9', true: '#52c41a' }}
+                thumbColor="#fff"
+                ios_backgroundColor="#d9d9d9"
+                disabled={chatStore.isStatusLoading}
               />
-              <Text style={styles.cardTitle}>
-                {appointmentsSectionTitle} ({appointments.length})
-              </Text>
             </View>
-            {appointmentsSubtitle && (
-              <Text style={styles.appointmentsSectionSubtitle}>
-                {appointmentsSubtitle}
-              </Text>
-            )}
-            {appointments.length === 0 ? (
-              <>
-                <Text style={styles.placeholderText}>
-                  No appointments scheduled
+            <Text style={styles.statusDescription}>
+              {isOnline
+                ? 'You are available to receive chats'
+                : 'You will not receive new chats'}
+            </Text>
+          </View>
+
+          {/* KPI Cards Grid */}
+          <View style={styles.kpiGrid}>
+            {/* Open Chats */}
+            <TouchableOpacity
+              style={[styles.kpiCard, styles.kpiCardBlue]}
+              onPress={() =>
+                (navigation as any).navigate('ChatStack', {
+                  screen: 'ConversationList',
+                })
+              }
+            >
+              <Text style={styles.kpiValue}>{openChatsCount}</Text>
+              <Text style={styles.kpiLabel}>Open Chats</Text>
+              <Icon
+                name="chatbubbles"
+                size={32}
+                color="#fff"
+                style={styles.kpiIcon}
+              />
+            </TouchableOpacity>
+
+            {/* Claimed Chats */}
+            <TouchableOpacity
+              style={[styles.kpiCard, styles.kpiCardGreen]}
+              onPress={() =>
+                (navigation as any).navigate('ChatStack', {
+                  screen: 'ConversationList',
+                })
+              }
+            >
+              <Text style={styles.kpiValue}>{claimedChatsCount}</Text>
+              <Text style={styles.kpiLabel}>Claimed by You</Text>
+              <Icon
+                name="person"
+                size={32}
+                color="#fff"
+                style={styles.kpiIcon}
+              />
+            </TouchableOpacity>
+
+            {/* Requires Attention */}
+            <TouchableOpacity
+              style={[styles.kpiCard, styles.kpiCardOrange]}
+              onPress={() =>
+                (navigation as any).navigate('ChatStack', {
+                  screen: 'ConversationList',
+                })
+              }
+            >
+              <Text style={styles.kpiValue}>{requiresAttentionCount}</Text>
+              <Text style={styles.kpiLabel}>Needs Attention</Text>
+              <Icon
+                name="warning"
+                size={32}
+                color="#fff"
+                style={styles.kpiIcon}
+              />
+            </TouchableOpacity>
+
+            {/* AI Disabled */}
+            <TouchableOpacity style={[styles.kpiCard, styles.kpiCardPurple]}>
+              <Text style={styles.kpiValue}>{chatStore.aiDisabledCount}</Text>
+              <Text style={styles.kpiLabel}>AI Disabled</Text>
+              <Icon
+                name="pause-circle"
+                size={32}
+                color="#fff"
+                style={styles.kpiIcon}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Upcoming Appointments */}
+          {appointmentsEnabled && (
+            <View style={styles.card}>
+              <View style={styles.cardTitleRow}>
+                <Icon
+                  name="calendar"
+                  size={20}
+                  color="#1890ff"
+                  style={styles.cardTitleIcon}
+                />
+                <Text style={styles.cardTitle}>
+                  {appointmentsSectionTitle} ({appointments.length})
                 </Text>
-                <Text style={styles.placeholderSubtext}>
-                  Appointments will appear here when customers book through AI
+              </View>
+              {appointmentsSubtitle && (
+                <Text style={styles.appointmentsSectionSubtitle}>
+                  {appointmentsSubtitle}
                 </Text>
-              </>
-            ) : (
-              <View style={styles.appointmentsList}>
-                {/* Show max 5 appointments on dashboard for overview */}
-                {appointments.slice(0, 5).map(apt => (
-                  <TouchableOpacity
-                    key={apt.id}
-                    style={styles.appointmentItem}
-                    onPress={handleAppointmentPress}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.appointmentHeader}>
-                      <Text style={styles.appointmentCustomer}>
-                        {apt.customerName}
+              )}
+              {appointments.length === 0 ? (
+                <>
+                  <Text style={styles.placeholderText}>
+                    No appointments scheduled
+                  </Text>
+                  <Text style={styles.placeholderSubtext}>
+                    Appointments will appear here when customers book through AI
+                  </Text>
+                </>
+              ) : (
+                <View style={styles.appointmentsList}>
+                  {/* Show max 5 appointments on dashboard for overview */}
+                  {appointments.slice(0, 5).map(apt => (
+                    <TouchableOpacity
+                      key={apt.id}
+                      style={styles.appointmentItem}
+                      onPress={handleAppointmentPress}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.appointmentHeader}>
+                        <Text style={styles.appointmentCustomer}>
+                          {apt.customerName}
+                        </Text>
+                        <View
+                          style={[
+                            styles.appointmentStatusBadge,
+                            { backgroundColor: getStatusColor(apt.status) },
+                          ]}
+                        >
+                          <Text style={styles.appointmentStatusText}>
+                            {apt.status}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.appointmentService}>
+                        {apt.service?.name || 'N/A'}{' '}
+                        {apt.service?.price ? `- $${apt.service.price}` : ''}
                       </Text>
-                      <View
-                        style={[
-                          styles.appointmentStatusBadge,
-                          { backgroundColor: getStatusColor(apt.status) },
-                        ]}
-                      >
-                        <Text style={styles.appointmentStatusText}>
-                          {apt.status}
+                      <View style={styles.appointmentTimeRow}>
+                        <Icon name="calendar-outline" size={16} color="#666" />
+                        <Text style={styles.appointmentTime}>
+                          {formatAppointmentDateTime(apt.appointmentDate)}
                         </Text>
                       </View>
-                    </View>
-                    <Text style={styles.appointmentService}>
-                      {apt.service?.name || 'N/A'}{' '}
-                      {apt.service?.price ? `- $${apt.service.price}` : ''}
-                    </Text>
-                    <View style={styles.appointmentTimeRow}>
-                      <Icon name="calendar-outline" size={16} color="#666" />
-                      <Text style={styles.appointmentTime}>
-                        {formatAppointmentDateTime(apt.appointmentDate)}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Quick Actions */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Quick Actions</Text>
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() =>
-              (navigation as any).navigate('ChatStack', {
-                screen: 'ConversationList',
-              })
-            }
-          >
-            <Icon
-              name="chatbubbles"
-              size={24}
-              color="#1890ff"
-              style={styles.quickActionIcon}
-            />
-            <View style={styles.quickActionContent}>
-              <Text style={styles.quickActionTitle}>View All Chats</Text>
-              <Text style={styles.quickActionSubtitle}>
-                Manage customer conversations
-              </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
-            <Text style={styles.quickActionArrow}>›</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+          )}
+
+          {/* Quick Actions */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Quick Actions</Text>
+            <TouchableOpacity
+              style={styles.quickAction}
+              onPress={() =>
+                (navigation as any).navigate('ChatStack', {
+                  screen: 'ConversationList',
+                })
+              }
+            >
+              <Icon
+                name="chatbubbles"
+                size={24}
+                color="#1890ff"
+                style={styles.quickActionIcon}
+              />
+              <View style={styles.quickActionContent}>
+                <Text style={styles.quickActionTitle}>View All Chats</Text>
+                <Text style={styles.quickActionSubtitle}>
+                  Manage customer conversations
+                </Text>
+              </View>
+              <Text style={styles.quickActionArrow}>›</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </ScreenBackground>
     </SafeAreaView>
   );
 });
@@ -511,13 +538,37 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f9',
+    backgroundColor: 'transparent',
   },
   header: {
     padding: 20,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 14,
+  },
+  headerAvatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#1890ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  headerAvatarText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   headerTitle: {
     fontSize: 28,

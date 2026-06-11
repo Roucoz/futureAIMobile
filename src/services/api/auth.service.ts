@@ -27,6 +27,7 @@ export interface User {
   firstName: string;
   lastName: string;
   twoFactorEnabled: boolean;
+  avatarUrl?: string | null;
   createdAt?: string;
 }
 
