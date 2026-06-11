@@ -232,67 +232,67 @@ const TicketListScreen = observer(() => {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScreenBackground>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Tickets</Text>
-          <Text style={styles.headerSubtitle}>
-            {ticketStore.totalCount} ticket
-            {ticketStore.totalCount !== 1 ? 's' : ''}
-          </Text>
-        </View>
-
-        {/* Status Filter Tabs */}
-        <View style={styles.tabsContainer}>
-          {ticketStore.statusFilters.map(item => {
-            const isActive = ticketStore.statusFilter === item.key;
-            return (
-              <TouchableOpacity
-                key={item.key}
-                style={[styles.tab, isActive && styles.tabActive]}
-                onPress={() => handleStatusChange(item.key)}
-              >
-                <Text
-                  style={[styles.tabText, isActive && styles.tabTextActive]}
-                  numberOfLines={1}
-                >
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Loading */}
-        {ticketStore.loading ? (
-          <View style={styles.centerContainer}>
-            <Text style={styles.loadingText}>Loading tickets...</Text>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Tickets</Text>
+            <Text style={styles.headerSubtitle}>
+              {ticketStore.totalCount} ticket
+              {ticketStore.totalCount !== 1 ? 's' : ''}
+            </Text>
           </View>
-        ) : (
-          <FlatList
-            data={ticketStore.filteredTickets as unknown as TicketItem[]}
-            keyExtractor={item => item.id}
-            renderItem={renderTicketCard}
-            ListEmptyComponent={renderEmpty}
-            ListFooterComponent={renderFooter}
-            contentContainerStyle={
-              ticketStore.filteredTickets.length === 0
-                ? styles.emptyListContent
-                : styles.listContent
-            }
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.3}
-            refreshControl={
-              <RefreshControl
-                refreshing={ticketStore.refreshing}
-                onRefresh={onRefresh}
-                colors={['#1890ff']}
-                tintColor="#1890ff"
-              />
-            }
-          />
-        )}
-      </View>
+
+          {/* Status Filter Tabs */}
+          <View style={styles.tabsContainer}>
+            {ticketStore.statusFilters.map(item => {
+              const isActive = ticketStore.statusFilter === item.key;
+              return (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[styles.tab, isActive && styles.tabActive]}
+                  onPress={() => handleStatusChange(item.key)}
+                >
+                  <Text
+                    style={[styles.tabText, isActive && styles.tabTextActive]}
+                    numberOfLines={1}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Loading */}
+          {ticketStore.loading ? (
+            <View style={styles.centerContainer}>
+              <Text style={styles.loadingText}>Loading tickets...</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={ticketStore.filteredTickets as unknown as TicketItem[]}
+              keyExtractor={item => item.id}
+              renderItem={renderTicketCard}
+              ListEmptyComponent={renderEmpty}
+              ListFooterComponent={renderFooter}
+              contentContainerStyle={
+                ticketStore.filteredTickets.length === 0
+                  ? styles.emptyListContent
+                  : styles.listContent
+              }
+              onEndReached={handleLoadMore}
+              onEndReachedThreshold={0.3}
+              refreshControl={
+                <RefreshControl
+                  refreshing={ticketStore.refreshing}
+                  onRefresh={onRefresh}
+                  colors={['#1890ff']}
+                  tintColor="#1890ff"
+                />
+              }
+            />
+          )}
+        </View>
       </ScreenBackground>
     </SafeAreaView>
   );

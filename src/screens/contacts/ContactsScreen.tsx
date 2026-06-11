@@ -329,118 +329,118 @@ const ContactsScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScreenBackground>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Contacts</Text>
-          <Text style={styles.headerSubtitle}>
-            {contacts.length} contact{contacts.length !== 1 ? 's' : ''}
-          </Text>
-        </View>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Contacts</Text>
+            <Text style={styles.headerSubtitle}>
+              {contacts.length} contact{contacts.length !== 1 ? 's' : ''}
+            </Text>
+          </View>
 
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search contacts..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search contacts..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
 
-        {/* Filter Tabs */}
-        <View style={styles.filterContainer}>
-          {(
-            ['ALL', 'NEW', 'REGULAR', 'VIP', 'BLOCKED', 'INACTIVE'] as const
-          ).map(filter => (
-            <TouchableOpacity
-              key={filter}
-              style={[
-                styles.filterTab,
-                filterType === filter && styles.filterTabActive,
-              ]}
-              onPress={() => setFilterType(filter)}
-            >
+          {/* Filter Tabs */}
+          <View style={styles.filterContainer}>
+            {(
+              ['ALL', 'NEW', 'REGULAR', 'VIP', 'BLOCKED', 'INACTIVE'] as const
+            ).map(filter => (
+              <TouchableOpacity
+                key={filter}
+                style={[
+                  styles.filterTab,
+                  filterType === filter && styles.filterTabActive,
+                ]}
+                onPress={() => setFilterType(filter)}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    filterType === filter && styles.filterTextActive,
+                  ]}
+                >
+                  {filter}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Sort Options */}
+          <View style={styles.sortContainer}>
+            <Text style={styles.sortLabel}>Sort by:</Text>
+            <TouchableOpacity onPress={() => toggleSort('lastContactedAt')}>
               <Text
                 style={[
-                  styles.filterText,
-                  filterType === filter && styles.filterTextActive,
+                  styles.sortOption,
+                  sortBy === 'lastContactedAt' && styles.sortOptionActive,
                 ]}
               >
-                {filter}
+                Recent{' '}
+                {sortBy === 'lastContactedAt' &&
+                  (sortOrder === 'asc' ? '↑' : '↓')}
               </Text>
             </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Sort Options */}
-        <View style={styles.sortContainer}>
-          <Text style={styles.sortLabel}>Sort by:</Text>
-          <TouchableOpacity onPress={() => toggleSort('lastContactedAt')}>
-            <Text
-              style={[
-                styles.sortOption,
-                sortBy === 'lastContactedAt' && styles.sortOptionActive,
-              ]}
-            >
-              Recent{' '}
-              {sortBy === 'lastContactedAt' &&
-                (sortOrder === 'asc' ? '↑' : '↓')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => toggleSort('name')}>
-            <Text
-              style={[
-                styles.sortOption,
-                sortBy === 'name' && styles.sortOptionActive,
-              ]}
-            >
-              Name {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => toggleSort('totalConversations')}>
-            <Text
-              style={[
-                styles.sortOption,
-                sortBy === 'totalConversations' && styles.sortOptionActive,
-              ]}
-            >
-              Chats{' '}
-              {sortBy === 'totalConversations' &&
-                (sortOrder === 'asc' ? '↑' : '↓')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Contact List */}
-        {isLoading && contacts.length === 0 ? (
-          <View style={styles.centerLoader}>
-            <ActivityIndicator size="large" color="#1890ff" />
-            <Text style={styles.loadingText}>Loading contacts...</Text>
+            <TouchableOpacity onPress={() => toggleSort('name')}>
+              <Text
+                style={[
+                  styles.sortOption,
+                  sortBy === 'name' && styles.sortOptionActive,
+                ]}
+              >
+                Name {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => toggleSort('totalConversations')}>
+              <Text
+                style={[
+                  styles.sortOption,
+                  sortBy === 'totalConversations' && styles.sortOptionActive,
+                ]}
+              >
+                Chats{' '}
+                {sortBy === 'totalConversations' &&
+                  (sortOrder === 'asc' ? '↑' : '↓')}
+              </Text>
+            </TouchableOpacity>
           </View>
-        ) : (
-          <FlatList
-            data={contacts}
-            renderItem={renderContactItem}
-            keyExtractor={item => item.id}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handleRefresh}
-              />
-            }
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.5}
-            ListEmptyComponent={renderEmptyState}
-            ListFooterComponent={renderFooter}
-            contentContainerStyle={
-              contacts.length === 0 ? styles.emptyList : undefined
-            }
-          />
-        )}
-      </View>
+
+          {/* Contact List */}
+          {isLoading && contacts.length === 0 ? (
+            <View style={styles.centerLoader}>
+              <ActivityIndicator size="large" color="#1890ff" />
+              <Text style={styles.loadingText}>Loading contacts...</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={contacts}
+              renderItem={renderContactItem}
+              keyExtractor={item => item.id}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isRefreshing}
+                  onRefresh={handleRefresh}
+                />
+              }
+              onEndReached={handleLoadMore}
+              onEndReachedThreshold={0.5}
+              ListEmptyComponent={renderEmptyState}
+              ListFooterComponent={renderFooter}
+              contentContainerStyle={
+                contacts.length === 0 ? styles.emptyList : undefined
+              }
+            />
+          )}
+        </View>
       </ScreenBackground>
     </SafeAreaView>
   );
