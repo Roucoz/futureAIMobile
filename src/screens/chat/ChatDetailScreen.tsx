@@ -20,6 +20,8 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   StatusBar,
+  StyleProp,
+  TextStyle,
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
@@ -32,6 +34,32 @@ import VoicePlayer from '../../components/audio/VoicePlayer';
 import ScreenBackground from '../../components/common/ScreenBackground';
 
 type ChatDetailRouteProp = RouteProp<ChatStackParamList, 'ChatDetail'>;
+
+/**
+ * Parses **bold** markers in text and returns a single <Text> with nested children.
+ * Android requires all children inside <Text> to also be <Text> elements.
+ */
+const renderFormattedText = (
+  content: string,
+  style: StyleProp<TextStyle>,
+): React.ReactNode => {
+  const parts = content.split(/(\*\*[^*]+\*\*)/g);
+  return (
+    <Text style={style}>
+      {parts.map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          const boldText = part.slice(2, -2);
+          return (
+            <Text key={index} style={{ fontWeight: 'bold' }}>
+              {boldText}
+            </Text>
+          );
+        }
+        return <Text key={index}>{part}</Text>;
+      })}
+    </Text>
+  );
+};
 
 const ChatDetailScreen = observer(() => {
   const route = useRoute<ChatDetailRouteProp>();
@@ -290,11 +318,11 @@ const ChatDetailScreen = observer(() => {
 
         <View style={[styles.messageBubble, isRight && styles.agentBubble]}>
           {/* Text Content */}
-          {item.content && (
-            <Text style={[styles.messageText, isRight && styles.agentText]}>
-              {item.content}
-            </Text>
-          )}
+          {item.content &&
+            renderFormattedText(item.content, [
+              styles.messageText,
+              isRight && styles.agentText,
+            ])}
 
           {/* Voice Message */}
           {hasAudio && (
