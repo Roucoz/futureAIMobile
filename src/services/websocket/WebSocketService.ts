@@ -12,7 +12,7 @@ type WebSocketMessage =
   | {
     type: 'conversation_mode_updated';
     conversationId: string;
-    mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED';
+    mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED' | 'ORDER_IN_PROGRESS';
   }
   | {
     type: 'typing_start';

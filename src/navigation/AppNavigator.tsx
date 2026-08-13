@@ -12,9 +12,9 @@ import { AppTabParamList } from './types';
 import ChatNavigator from './ChatNavigator';
 import ContactsNavigator from './ContactsNavigator';
 import TicketNavigator from './TicketNavigator';
-import DashboardScreen from '../screens/dashboard/DashboardScreen';
+import DashboardNavigator from './DashboardNavigator';
 import AppointmentsScreen from '../screens/appointments/AppointmentsScreen';
-import ProfileScreen from '../screens/profile/ProfileScreen';
+import OrdersScreen from '../screens/orders/OrdersScreen';
 
 const Tab = createBottomTabNavigator<AppTabParamList>();
 
@@ -33,7 +33,7 @@ const AppNavigator = () => {
     >
       <Tab.Screen
         name="Dashboard"
-        component={DashboardScreen}
+        component={DashboardNavigator}
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
@@ -62,6 +62,16 @@ const AppNavigator = () => {
         }}
       />
       <Tab.Screen
+        name="Orders"
+        component={OrdersScreen}
+        options={{
+          title: 'Orders',
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="cart" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
         name="TicketStack"
         component={TicketNavigator}
         options={{
@@ -78,16 +88,6 @@ const AppNavigator = () => {
           title: 'Contacts',
           tabBarIcon: ({ color, size }) => (
             <Icon name="people" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => (
-            <Icon name="person" size={size} color={color} />
           ),
         }}
       />

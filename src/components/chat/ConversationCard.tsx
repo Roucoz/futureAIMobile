@@ -25,7 +25,7 @@ interface ConversationCardProps {
     updatedAt: string;
     unreadCount: number;
     status: 'OPEN' | 'CLOSED' | 'ARCHIVED';
-    mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED';
+    mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED' | 'ORDER_IN_PROGRESS';
     requiresAttention: boolean;
     assignedToMemberId: string | null;
     assignedToMember: { id: string; name: string } | null;
@@ -52,13 +52,15 @@ const ConversationCard: React.FC<ConversationCardProps> = observer(
     };
 
     const getModeIcon = (
-      mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED',
+      mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED' | 'ORDER_IN_PROGRESS',
     ) => {
       switch (mode) {
         case 'HUMAN_TAKEOVER':
           return '👤';
         case 'AI_PAUSED':
           return '⏸️';
+        case 'ORDER_IN_PROGRESS':
+          return '🛒';
         default:
           return '🤖';
       }
@@ -196,7 +198,8 @@ const ConversationCard: React.FC<ConversationCardProps> = observer(
           <TouchableOpacity
             style={[
               styles.actionButton,
-              conversation.mode === 'AI_ACTIVE'
+              conversation.mode === 'AI_ACTIVE' ||
+              conversation.mode === 'ORDER_IN_PROGRESS'
                 ? styles.aiActiveButton
                 : styles.aiInactiveButton,
             ]}
@@ -204,7 +207,10 @@ const ConversationCard: React.FC<ConversationCardProps> = observer(
             disabled={chatStore.isUpdatingMode}
           >
             <Text style={styles.actionButtonText}>
-              {conversation.mode === 'AI_ACTIVE' ? '🤖 AI On' : '👤 Manual'}
+              {conversation.mode === 'AI_ACTIVE' ||
+              conversation.mode === 'ORDER_IN_PROGRESS'
+                ? '🤖 AI On'
+                : '👤 Manual'}
             </Text>
           </TouchableOpacity>
 

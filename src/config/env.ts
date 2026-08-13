@@ -8,8 +8,10 @@ import { Platform } from 'react-native';
 // Environment variables (create .env files for each environment)
 const ENV = {
   development: {
-    API_BASE_URL: 'http://192.168.1.102:4010', // Use Mac IP for simulator access
-    WS_URL: 'ws://192.168.1.102:4010',
+    // Use ngrok URL for external access (works from any network)
+    // Switch to local IP when on same WiFi: 'http://192.168.1.102:4010'
+    API_BASE_URL: 'https://apply-nonesurient-romaine.ngrok-free.dev',
+    WS_URL: 'wss://apply-nonesurient-romaine.ngrok-free.dev',
     GOOGLE_CLIENT_ID: 'your-google-client-id.apps.googleusercontent.com',
   },
   production: {

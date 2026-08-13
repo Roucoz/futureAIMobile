@@ -240,7 +240,11 @@ const DashboardScreen = observer(() => {
         >
           {/* Header */}
           <View style={styles.header}>
-            <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.headerRow}
+              onPress={() => (navigation as any).navigate('Profile')}
+              activeOpacity={0.7}
+            >
               {authStore.user?.avatarUrl ? (
                 <Image
                   source={{ uri: resolveImageUrl(authStore.user.avatarUrl)! }}
@@ -254,13 +258,14 @@ const DashboardScreen = observer(() => {
                   </Text>
                 </View>
               )}
-              <View>
+              <View style={styles.headerTextBlock}>
                 <Text style={styles.headerTitle}>Dashboard</Text>
                 <Text style={styles.headerSubtitle}>
                   Welcome, {authStore.user?.fullName}
                 </Text>
               </View>
-            </View>
+              <Icon name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
           </View>
 
           {/* Status Card */}
@@ -549,6 +554,9 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  headerTextBlock: {
+    flex: 1,
   },
   headerAvatar: {
     width: 48,

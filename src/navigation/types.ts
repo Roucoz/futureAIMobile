@@ -43,11 +43,17 @@ export type TicketStackParamList = {
 
 // App Navigator Params (Bottom Tabs)
 export type AppTabParamList = {
-  Dashboard: undefined;
+  Dashboard: NavigatorScreenParams<DashboardStackParamList>;
   ChatStack: NavigatorScreenParams<ChatStackParamList>;
   Appointments: undefined;
+  Orders: undefined;
   TicketStack: NavigatorScreenParams<TicketStackParamList>;
   ContactsStack: NavigatorScreenParams<ContactsStackParamList>;
+};
+
+// Dashboard Stack Params
+export type DashboardStackParamList = {
+  DashboardMain: undefined;
   Profile: undefined;
 };
 

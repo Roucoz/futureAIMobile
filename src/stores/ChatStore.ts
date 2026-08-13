@@ -41,7 +41,7 @@ export const ConversationPreview = types
     id: types.identifier,
     visitorId: types.string,
     domain: types.string,
-    mode: types.enumeration(['AI_ACTIVE', 'HUMAN_TAKEOVER', 'AI_PAUSED']),
+    mode: types.enumeration(['AI_ACTIVE', 'HUMAN_TAKEOVER', 'AI_PAUSED', 'ORDER_IN_PROGRESS']),
     status: types.optional(
       types.enumeration(['OPEN', 'CLOSED', 'ARCHIVED']),
       'OPEN',
@@ -91,7 +91,7 @@ export const ConversationDetail = types.model('ConversationDetail', {
   id: types.identifier,
   visitorId: types.string,
   domain: types.string,
-  mode: types.enumeration(['AI_ACTIVE', 'HUMAN_TAKEOVER', 'AI_PAUSED']),
+  mode: types.enumeration(['AI_ACTIVE', 'HUMAN_TAKEOVER', 'AI_PAUSED', 'ORDER_IN_PROGRESS']),
   unreadCount: types.number,
   assignedToMemberId: types.maybeNull(types.string),
   assignedToMember: types.maybeNull(AssignedAgent),
