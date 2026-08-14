@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
+import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../../stores';
 import { resolveImageUrl } from '../../utils/imageUrl';
@@ -22,6 +23,7 @@ import { format } from 'date-fns';
 
 const ProfileScreen = observer(() => {
   const authStore = useAuth();
+  const navigation = useNavigation();
 
   const InfoRow = ({
     label,
@@ -46,6 +48,16 @@ const ProfileScreen = observer(() => {
         <View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
+            <View style={styles.headerTopRow}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon name="chevron-back" size={24} color="#1890ff" />
+                <Text style={styles.backText}>Back</Text>
+              </TouchableOpacity>
+            </View>
             <Text style={styles.title}>Profile</Text>
             <Text style={styles.subtitle}>Account Information</Text>
           </View>
@@ -170,6 +182,20 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e8e8e8',
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backText: {
+    fontSize: 16,
+    color: '#1890ff',
+    marginLeft: 2,
   },
   title: {
     fontSize: 28,

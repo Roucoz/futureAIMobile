@@ -30,6 +30,7 @@ import {
   appointmentsService,
   Appointment,
 } from '../../services/api/appointments.service';
+import { ordersService } from '../../services/api/orders.service';
 import { websocketService } from '../../services/websocket/WebSocketService';
 
 type DashboardNavigationProp = BottomTabNavigationProp<
@@ -50,6 +51,7 @@ const DashboardScreen = observer(() => {
   const [appointmentsSubtitle, setAppointmentsSubtitle] = useState<
     string | null
   >(null);
+  const [totalOrders, setTotalOrders] = useState(0);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -58,6 +60,14 @@ const DashboardScreen = observer(() => {
 
       // Load conversations
       await chatStore.loadConversations('OPEN');
+
+      // Load orders count (module may be disabled — fail silently)
+      try {
+        const orders = await ordersService.getOrders();
+        setTotalOrders(orders.length);
+      } catch {
+        setTotalOrders(0);
+      }
 
       // Load appointments (if module enabled) - OPTIMIZED: Only fetch what we need
       try {
@@ -174,10 +184,11 @@ const DashboardScreen = observer(() => {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  // WebSocket: listen for appointment & agent status updates to refresh dashboard
+  // WebSocket: listen for order, appointment & agent status updates to refresh dashboard
   useEffect(() => {
     const unsubscribe = websocketService.subscribe(message => {
       if (
+        message.type === 'order_updated' ||
         message.type === 'appointment_updated' ||
         message.type === 'agent_status_changed' ||
         message.type === 'ws_reconnected'
@@ -358,6 +369,21 @@ const DashboardScreen = observer(() => {
               <Text style={styles.kpiLabel}>AI Disabled</Text>
               <Icon
                 name="pause-circle"
+                size={32}
+                color="#fff"
+                style={styles.kpiIcon}
+              />
+            </TouchableOpacity>
+
+            {/* Orders */}
+            <TouchableOpacity
+              style={[styles.kpiCard, styles.kpiCardOrders]}
+              onPress={() => (navigation as any).navigate('Orders')}
+            >
+              <Text style={styles.kpiValue}>{totalOrders}</Text>
+              <Text style={styles.kpiLabel}>Orders</Text>
+              <Icon
+                name="cart"
                 size={32}
                 color="#fff"
                 style={styles.kpiIcon}
@@ -670,6 +696,10 @@ const styles = StyleSheet.create({
   },
   kpiCardPurple: {
     backgroundColor: '#722ed1',
+  },
+  kpiCardOrders: {
+    backgroundColor: '#eb2f96',
+    width: '97%',
   },
   kpiValue: {
     fontSize: 36,

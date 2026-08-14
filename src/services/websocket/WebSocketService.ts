@@ -66,6 +66,18 @@ type WebSocketMessage =
     timestamp: string;
   }
   | {
+    type: 'order_updated';
+    action: 'created' | 'updated' | 'canceled' | 'status_changed';
+    order: {
+      id: string;
+      customerName: string;
+      status: string;
+      totalAmount?: number | null;
+      conversationId?: string | null;
+    };
+    timestamp: string;
+  }
+  | {
     type: 'ws_reconnected';
   }
   | {
