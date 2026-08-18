@@ -8,12 +8,14 @@ import { AuthStore } from './AuthStore';
 import { ChatStore } from './ChatStore';
 import { AppointmentStore } from './AppointmentStore';
 import { TicketStore } from './TicketStore';
+import { ModuleStore } from './ModuleStore';
 
 export const RootStore = types.model('RootStore', {
   auth: AuthStore,
   chat: ChatStore,
   appointment: AppointmentStore,
   ticket: TicketStore,
+  module: ModuleStore,
 });
 
 // Create root store instance
@@ -23,6 +25,7 @@ export function createRootStore() {
     chat: {},
     appointment: {},
     ticket: {},
+    module: {},
   });
 }
 

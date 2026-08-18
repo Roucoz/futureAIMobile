@@ -8,7 +8,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { observer } from 'mobx-react-lite';
 import { ActivityIndicator, View } from 'react-native';
-import { useAuth, useChat, useAppointment } from '../stores';
+import { useAuth, useChat, useAppointment, useModule } from '../stores';
 import { notificationService } from '../services/notifications/NotificationService';
 import { websocketService } from '../services/websocket/WebSocketService';
 import { RootStackParamList } from './types';
@@ -24,12 +24,21 @@ const RootNavigator = observer(() => {
   const authStore = useAuth();
   const chatStore = useChat();
   const appointmentStore = useAppointment();
+  const moduleStore = useModule();
   const notificationsInitialized = useRef(false);
 
   // Initialize auth state on app load
   useEffect(() => {
     authStore.initialize();
   }, []);
+
+  // Fetch enabled modules once authenticated
+  // (used to gate appointments/orders/tickets API calls and tab access)
+  useEffect(() => {
+    if (authStore.isAuthenticated && authStore.token) {
+      moduleStore.fetchModuleStatuses();
+    }
+  }, [authStore.isAuthenticated, authStore.token, moduleStore]);
 
   // Listen for session_terminated WebSocket events (forced logout)
   useEffect(() => {

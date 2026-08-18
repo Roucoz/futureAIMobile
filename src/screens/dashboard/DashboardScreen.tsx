@@ -23,14 +23,14 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { AppTabParamList } from '../../navigation/types';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useAuth, useChat } from '../../stores';
+import { useAuth, useChat, useModule } from '../../stores';
 import { resolveImageUrl } from '../../utils/imageUrl';
 import ScreenBackground from '../../components/common/ScreenBackground';
 import {
   appointmentsService,
   Appointment,
 } from '../../services/api/appointments.service';
-import { ordersService } from '../../services/api/orders.service';
+import { ordersService, OrderStatus } from '../../services/api/orders.service';
 import { websocketService } from '../../services/websocket/WebSocketService';
 
 type DashboardNavigationProp = BottomTabNavigationProp<
@@ -38,10 +38,21 @@ type DashboardNavigationProp = BottomTabNavigationProp<
   'Dashboard'
 >;
 
+// Active order statuses (excludes COMPLETED and CANCELED)
+const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
+  'PENDING',
+  'CONFIRMED',
+  'PREPARING',
+  'READY',
+  'OUT_FOR_DELIVERY',
+  'DELIVERED',
+];
+
 const DashboardScreen = observer(() => {
   const navigation = useNavigation<DashboardNavigationProp>();
   const authStore = useAuth();
   const chatStore = useChat();
+  const moduleStore = useModule();
   const [refreshing, setRefreshing] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [appointmentsEnabled, setAppointmentsEnabled] = useState(false);
@@ -55,119 +66,137 @@ const DashboardScreen = observer(() => {
 
   const loadDashboardData = useCallback(async () => {
     try {
+      // Make sure module status is known before deciding what to fetch
+      await moduleStore.ensureLoaded();
+
       // Fetch current agent status first
       await chatStore.fetchAgentStatus();
 
       // Load conversations
       await chatStore.loadConversations('OPEN');
 
-      // Load orders count (module may be disabled — fail silently)
-      try {
-        const orders = await ordersService.getOrders();
-        setTotalOrders(orders.length);
-      } catch {
+      // Load ACTIVE orders count (only when module enabled AND user has permission)
+      if (moduleStore.orders && authStore.canAccessResource('orders')) {
+        try {
+          const orders = await ordersService.getOrders(ACTIVE_ORDER_STATUSES);
+          setTotalOrders(orders.length);
+        } catch {
+          setTotalOrders(0);
+        }
+      } else {
         setTotalOrders(0);
       }
 
-      // Load appointments (if module enabled) - OPTIMIZED: Only fetch what we need
-      try {
-        // Fetch only today's appointments first
-        const todayAppointmentsRaw =
-          await appointmentsService.getTodayAppointments();
+      // Load appointments (only if module enabled AND user has permission) - OPTIMIZED
+      if (
+        moduleStore.appointments &&
+        authStore.canAccessResource('appointments')
+      ) {
+        try {
+          // Fetch only today's appointments first
+          const todayAppointmentsRaw =
+            await appointmentsService.getTodayAppointments();
 
-        // CLIENT-SIDE VALIDATION: Filter to ensure we only show today's appointments
-        const now = new Date();
-        const startOfToday = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate(),
-        );
-        const endOfToday = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate() + 1,
-        );
+          // CLIENT-SIDE VALIDATION: Filter to ensure we only show today's appointments
+          const now = new Date();
+          const startOfToday = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+          );
+          const endOfToday = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() + 1,
+          );
 
-        const todayAppointments = todayAppointmentsRaw.filter(apt => {
-          const aptDate = new Date(apt.appointmentDate);
-          return aptDate >= startOfToday && aptDate < endOfToday;
-        });
-
-        // Decide what to show based on today's appointments
-        if (todayAppointments.length > 0) {
-          setAppointments(todayAppointments);
-          setAppointmentsSectionTitle(`Today's Appointments`);
-          setAppointmentsSubtitle(null);
-        } else {
-          // No appointments today, check for future appointments (limited to 5)
-          const futureAppointmentsRaw =
-            await appointmentsService.getFutureAppointments(5);
-
-          // CLIENT-SIDE VALIDATION: Filter to ensure only future appointments (after today)
-          const futureAppointments = futureAppointmentsRaw.filter(apt => {
+          const todayAppointments = todayAppointmentsRaw.filter(apt => {
             const aptDate = new Date(apt.appointmentDate);
-            return aptDate >= endOfToday; // Must be tomorrow or later
+            return aptDate >= startOfToday && aptDate < endOfToday;
           });
 
-          if (futureAppointments.length > 0) {
-            setAppointments(futureAppointments);
-            setAppointmentsSectionTitle('Next Appointments');
-            // Show when the next appointment is
-            const nextApt = futureAppointments[0];
-            const nextDate = new Date(nextApt.appointmentDate);
-            const daysUntil = Math.ceil(
-              (nextDate.getTime() - startOfToday.getTime()) /
-                (1000 * 60 * 60 * 24),
-            );
-            const dateStr = formatNextAppointmentDate(nextDate, daysUntil);
-            setAppointmentsSubtitle(`Next appointment: ${dateStr}`);
+          // Decide what to show based on today's appointments
+          if (todayAppointments.length > 0) {
+            setAppointments(todayAppointments);
+            setAppointmentsSectionTitle(`Today's Appointments`);
+            setAppointmentsSubtitle(null);
           } else {
-            // No future appointments, check for past incomplete (limited to 5)
-            const pastIncompleteAppointmentsRaw =
-              await appointmentsService.getPastIncompleteAppointments(5);
+            // No appointments today, check for future appointments (limited to 5)
+            const futureAppointmentsRaw =
+              await appointmentsService.getFutureAppointments(5);
 
-            // CLIENT-SIDE VALIDATION: Filter to ensure only past incomplete appointments (before today, not COMPLETED/CANCELED)
-            const pastIncompleteAppointments =
-              pastIncompleteAppointmentsRaw.filter(apt => {
-                const aptDate = new Date(apt.appointmentDate);
-                return (
-                  aptDate < startOfToday &&
-                  apt.status !== 'COMPLETED' &&
-                  apt.status !== 'CANCELED'
-                );
-              });
+            // CLIENT-SIDE VALIDATION: Filter to ensure only future appointments (after today)
+            const futureAppointments = futureAppointmentsRaw.filter(apt => {
+              const aptDate = new Date(apt.appointmentDate);
+              return aptDate >= endOfToday; // Must be tomorrow or later
+            });
 
-            if (pastIncompleteAppointments.length > 0) {
-              // Get total count of incomplete appointments
-              const totalIncomplete =
-                await appointmentsService.getIncompleteAppointmentsCount();
-              setAppointments(pastIncompleteAppointments);
-              setAppointmentsSectionTitle('Previous Appointments');
-              setAppointmentsSubtitle(
-                `${totalIncomplete} incomplete appointment${
-                  totalIncomplete > 1 ? 's' : ''
-                }`,
+            if (futureAppointments.length > 0) {
+              setAppointments(futureAppointments);
+              setAppointmentsSectionTitle('Next Appointments');
+              // Show when the next appointment is
+              const nextApt = futureAppointments[0];
+              const nextDate = new Date(nextApt.appointmentDate);
+              const daysUntil = Math.ceil(
+                (nextDate.getTime() - startOfToday.getTime()) /
+                  (1000 * 60 * 60 * 24),
               );
+              const dateStr = formatNextAppointmentDate(nextDate, daysUntil);
+              setAppointmentsSubtitle(`Next appointment: ${dateStr}`);
             } else {
-              // No appointments at all
-              setAppointments([]);
-              setAppointmentsSectionTitle("Today's Appointments");
-              setAppointmentsSubtitle(null);
+              // No future appointments, check for past incomplete (limited to 5)
+              const pastIncompleteAppointmentsRaw =
+                await appointmentsService.getPastIncompleteAppointments(5);
+
+              // CLIENT-SIDE VALIDATION: Filter to ensure only past incomplete appointments (before today, not COMPLETED/CANCELED)
+              const pastIncompleteAppointments =
+                pastIncompleteAppointmentsRaw.filter(apt => {
+                  const aptDate = new Date(apt.appointmentDate);
+                  return (
+                    aptDate < startOfToday &&
+                    apt.status !== 'COMPLETED' &&
+                    apt.status !== 'CANCELED'
+                  );
+                });
+
+              if (pastIncompleteAppointments.length > 0) {
+                // Get total count of incomplete appointments
+                const totalIncomplete =
+                  await appointmentsService.getIncompleteAppointmentsCount();
+                setAppointments(pastIncompleteAppointments);
+                setAppointmentsSectionTitle('Previous Appointments');
+                setAppointmentsSubtitle(
+                  `${totalIncomplete} incomplete appointment${
+                    totalIncomplete > 1 ? 's' : ''
+                  }`,
+                );
+              } else {
+                // No appointments at all
+                setAppointments([]);
+                setAppointmentsSectionTitle("Today's Appointments");
+                setAppointmentsSubtitle(null);
+              }
             }
           }
-        }
 
-        setAppointmentsEnabled(true);
-      } catch (_error: any) {
-        // Module might not be enabled - this is OK
-        if (_error.message?.includes('MODULE_APPOINTMENTS')) {
-          setAppointmentsEnabled(false);
+          setAppointmentsEnabled(true);
+        } catch (_error: any) {
+          // Module might not be enabled - this is OK
+          if (_error.message?.includes('MODULE_APPOINTMENTS')) {
+            setAppointmentsEnabled(false);
+          }
         }
+      } else {
+        // Appointments module not enabled or no permission - clear and hide the section
+        setAppointmentsEnabled(false);
+        setAppointments([]);
+        setAppointmentsSectionTitle("Today's Appointments");
+        setAppointmentsSubtitle(null);
       }
     } catch (err) {
       console.error('Failed to load dashboard:', err);
     }
-  }, [chatStore]);
+  }, [chatStore, moduleStore, authStore]);
 
   // Keep a ref to loadDashboardData so WebSocket subscription is stable
   const loadDashboardDataRef = useRef(loadDashboardData);
@@ -375,20 +404,22 @@ const DashboardScreen = observer(() => {
               />
             </TouchableOpacity>
 
-            {/* Orders */}
-            <TouchableOpacity
-              style={[styles.kpiCard, styles.kpiCardOrders]}
-              onPress={() => (navigation as any).navigate('Orders')}
-            >
-              <Text style={styles.kpiValue}>{totalOrders}</Text>
-              <Text style={styles.kpiLabel}>Orders</Text>
-              <Icon
-                name="cart"
-                size={32}
-                color="#fff"
-                style={styles.kpiIcon}
-              />
-            </TouchableOpacity>
+            {/* Orders (only shown when the Orders module is enabled AND user has permission) */}
+            {moduleStore.orders && authStore.canAccessResource('orders') && (
+              <TouchableOpacity
+                style={[styles.kpiCard, styles.kpiCardOrders]}
+                onPress={() => (navigation as any).navigate('Orders')}
+              >
+                <Text style={styles.kpiValue}>{totalOrders}</Text>
+                <Text style={styles.kpiLabel}>Active Orders</Text>
+                <Icon
+                  name="cart"
+                  size={32}
+                  color="#fff"
+                  style={styles.kpiIcon}
+                />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Upcoming Appointments */}

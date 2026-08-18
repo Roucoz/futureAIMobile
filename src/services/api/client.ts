@@ -73,12 +73,23 @@ apiClient.interceptors.response.use(
     const errorData = error.response?.data;
     const errorMessage =
       errorData?.error || errorData?.message || error.message;
-    console.error('API error:', errorMessage);
+    const isPermissionDenied =
+      error.response?.status === 403 &&
+      /insufficient permission/i.test(errorMessage || '');
+
+    if (isPermissionDenied) {
+      // Not an app bug — the user's group doesn't grant access to this action.
+      // Callers detect this via `isPermissionDenied` and show a friendly message.
+      console.warn('🚫 Permission denied:', errorMessage);
+    } else {
+      console.error('API error:', errorMessage);
+    }
 
     return Promise.reject({
       status: error.response?.status,
       message: errorMessage,
       data: errorData,
+      isPermissionDenied,
       originalError: error,
     });
   },

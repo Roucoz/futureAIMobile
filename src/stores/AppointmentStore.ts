@@ -3,7 +3,7 @@
  * Manages appointments state
  */
 
-import { types, flow, cast, Instance } from 'mobx-state-tree';
+import { types, flow, cast, Instance, getRoot } from 'mobx-state-tree';
 import {
   appointmentsService,
   Appointment as AppointmentType,
@@ -12,6 +12,7 @@ import {
   UpdateAppointmentDto,
 } from '../services/api/appointments.service';
 import { websocketService } from '../services/websocket/WebSocketService';
+import { isPermissionDeniedError } from '../utils/errors';
 
 // Service model
 export const ServiceModel = types.model('Service', {
@@ -53,6 +54,7 @@ export const AppointmentStore = types
     services: types.array(ServiceModel),
     loading: types.optional(types.boolean, false),
     error: types.maybeNull(types.string),
+    permissionDenied: types.optional(types.boolean, false),
     selectedStatus: types.maybeNull(types.string), // Filter by status
     dateRangeFrom: types.maybeNull(types.string), // Date range filter start
     dateRangeTo: types.maybeNull(types.string), // Date range filter end
@@ -183,10 +185,29 @@ export const AppointmentStore = types
   .actions(self => {
     /**
      * Fetch all appointments (always fetch ALL, filter locally)
+     * Skips the API call when the Appointments module is not enabled,
+     * so disabled modules never trigger unnecessary requests or warnings.
      */
     const fetchAppointments = flow(function* () {
+      const root: any = getRoot(self);
+      if (root?.module && !root.module.appointments) {
+        self.appointments = cast([]);
+        self.loading = false;
+        self.error = null;
+        self.permissionDenied = false;
+        return;
+      }
+      if (root?.auth && !root.auth.canAccessResource('appointments')) {
+        self.appointments = cast([]);
+        self.loading = false;
+        self.error = null;
+        self.permissionDenied = true;
+        return;
+      }
+
       self.loading = true;
       self.error = null;
+      self.permissionDenied = false;
 
       try {
         // Always fetch all appointments without status filter
@@ -195,11 +216,17 @@ export const AppointmentStore = types
         self.appointments = cast(appointments);
         self.loading = false;
       } catch (error: any) {
-        console.error(
-          '❌ AppointmentStore.fetchAppointments() - ERROR:',
-          error,
-        );
-        self.error = error.message || 'Failed to load appointments';
+        if (isPermissionDeniedError(error)) {
+          self.appointments = cast([]);
+          self.permissionDenied = true;
+          self.error = null;
+        } else {
+          console.error(
+            '❌ AppointmentStore.fetchAppointments() - ERROR:',
+            error,
+          );
+          self.error = error.message || 'Failed to load appointments';
+        }
         self.loading = false;
       }
     });
@@ -229,10 +256,29 @@ export const AppointmentStore = types
 
     /**
      * Fetch today's appointments
+     * Skips the API call when the Appointments module is not enabled,
+     * so disabled modules never trigger unnecessary requests or warnings.
      */
     const fetchTodayAppointments = flow(function* () {
+      const root: any = getRoot(self);
+      if (root?.module && !root.module.appointments) {
+        self.appointments = cast([]);
+        self.loading = false;
+        self.error = null;
+        self.permissionDenied = false;
+        return;
+      }
+      if (root?.auth && !root.auth.canAccessResource('appointments')) {
+        self.appointments = cast([]);
+        self.loading = false;
+        self.error = null;
+        self.permissionDenied = true;
+        return;
+      }
+
       self.loading = true;
       self.error = null;
+      self.permissionDenied = false;
 
       try {
         const appointments: AppointmentType[] =
@@ -240,11 +286,17 @@ export const AppointmentStore = types
         self.appointments = cast(appointments);
         self.loading = false;
       } catch (error: any) {
-        console.error(
-          '❌ AppointmentStore.fetchTodayAppointments() - ERROR:',
-          error,
-        );
-        self.error = error.message || 'Failed to load appointments';
+        if (isPermissionDeniedError(error)) {
+          self.appointments = cast([]);
+          self.permissionDenied = true;
+          self.error = null;
+        } else {
+          console.error(
+            '❌ AppointmentStore.fetchTodayAppointments() - ERROR:',
+            error,
+          );
+          self.error = error.message || 'Failed to load appointments';
+        }
         self.loading = false;
       }
     });

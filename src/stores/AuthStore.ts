@@ -224,6 +224,25 @@ export const AuthStore = types
     },
 
     /**
+     * Check if user is the project owner (bypasses all permission checks)
+     */
+    get isOwner() {
+      return self.user?.role === 'OWNER';
+    },
+
+    /**
+     * Check if the user can access (view) a resource.
+     * OWNER always has full access; other users must have the "view" action
+     * granted through their group permissions.
+     */
+    canAccessResource(resource: string): boolean {
+      if (self.user?.role === 'OWNER') return true;
+      return self.permissions.some(
+        p => p.resource === resource && p.actions.includes('view'),
+      );
+    },
+
+    /**
      * Get user role
      */
     get userRole() {

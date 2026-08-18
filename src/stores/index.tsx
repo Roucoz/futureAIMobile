@@ -66,4 +66,12 @@ export const useTickets = () => {
   return ticket;
 };
 
+/**
+ * Hook to access module store
+ */
+export const useModule = () => {
+  const { module } = useStore();
+  return module;
+};
+
 export default StoreProvider;

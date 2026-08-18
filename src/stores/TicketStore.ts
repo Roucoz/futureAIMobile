@@ -3,12 +3,13 @@
  * Manages ticket list state with pagination
  */
 
-import { types, flow, cast, Instance } from 'mobx-state-tree';
+import { types, flow, cast, Instance, getRoot } from 'mobx-state-tree';
 import {
     ticketService,
     Ticket as TicketType,
     TicketStatus,
 } from '../services/api/ticket.service';
+import { isPermissionDeniedError } from '../utils/errors';
 
 // Ticket model
 export const TicketModel = types.model('Ticket', {
@@ -46,6 +47,7 @@ export const TicketStore = types
         loading: types.optional(types.boolean, false),
         refreshing: types.optional(types.boolean, false),
         loadingMore: types.optional(types.boolean, false),
+        permissionDenied: types.optional(types.boolean, false),
         error: types.maybeNull(types.string),
         statusFilter: types.optional(types.string, 'open'), // Default: open tickets
         currentPage: types.optional(types.number, 1),
@@ -87,23 +89,50 @@ export const TicketStore = types
     .actions(self => {
         /**
          * Fetch custom statuses from backend
+         * Skips the API call when the Ticketing module is not enabled
+         * or the user lacks permission to view tickets.
          */
         const fetchCustomStatuses = flow(function* () {
+            const root: any = getRoot(self);
+            if (root?.module && !root.module.ticketing) return;
+            if (root?.auth && !root.auth.canAccessResource('tickets')) return;
+
             try {
                 const statuses: TicketStatus[] = yield ticketService.getCustomStatuses();
                 self.statuses = cast(statuses);
             } catch (error: any) {
-                console.error('❌ TicketStore.fetchCustomStatuses() - ERROR:', error);
+                if (!isPermissionDeniedError(error)) {
+                    console.error('❌ TicketStore.fetchCustomStatuses() - ERROR:', error);
+                }
             }
         });
 
         /**
          * Fetch first page of tickets (replaces existing list)
          * Also loads custom statuses in parallel
+         * Skips the API call when the Ticketing module is not enabled
+         * or the user lacks permission to view tickets.
          */
         const fetchTickets = flow(function* () {
+            const root: any = getRoot(self);
+            if (root?.module && !root.module.ticketing) {
+                self.tickets = cast([]);
+                self.loading = false;
+                self.error = null;
+                self.permissionDenied = false;
+                return;
+            }
+            if (root?.auth && !root.auth.canAccessResource('tickets')) {
+                self.tickets = cast([]);
+                self.loading = false;
+                self.error = null;
+                self.permissionDenied = true;
+                return;
+            }
+
             self.loading = true;
             self.error = null;
+            self.permissionDenied = false;
 
             try {
                 const statusParam =
@@ -149,8 +178,14 @@ export const TicketStore = types
                 self.hasMore = result.pagination.page < result.pagination.totalPages;
                 self.loading = false;
             } catch (error: any) {
-                console.error('❌ TicketStore.fetchTickets() - ERROR:', error);
-                self.error = error.message || 'Failed to load tickets';
+                if (isPermissionDeniedError(error)) {
+                    self.tickets = cast([]);
+                    self.permissionDenied = true;
+                    self.error = null;
+                } else {
+                    console.error('❌ TicketStore.fetchTickets() - ERROR:', error);
+                    self.error = error.message || 'Failed to load tickets';
+                }
                 self.loading = false;
             }
         });
@@ -160,6 +195,10 @@ export const TicketStore = types
          */
         const loadMore = flow(function* () {
             if (self.loadingMore || !self.hasMore) return;
+
+            const root: any = getRoot(self);
+            if (root?.module && !root.module.ticketing) return;
+            if (root?.auth && !root.auth.canAccessResource('tickets')) return;
 
             self.loadingMore = true;
             const nextPage = self.currentPage + 1;

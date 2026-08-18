@@ -22,13 +22,15 @@ import {
 import { observer } from 'mobx-react-lite';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useAppointment } from '../../stores';
+import { useAppointment, useModule, useAuth } from '../../stores';
 import { format } from 'date-fns';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AppointmentFormModal from './AppointmentFormModal';
 import AppointmentDetailsModal from './AppointmentDetailsModal';
 import WeekViewScreen from './WeekViewScreen';
 import ScreenBackground from '../../components/common/ScreenBackground';
+import ModuleNotEnabled from '../../components/common/ModuleNotEnabled';
+import PermissionDenied from '../../components/common/PermissionDenied';
 import { websocketService } from '../../services/websocket/WebSocketService';
 
 // Status colors
@@ -70,6 +72,8 @@ const STATUS_FILTERS = [
 
 const AppointmentsScreen = observer(() => {
   const appointmentStore = useAppointment();
+  const moduleStore = useModule();
+  const authStore = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -84,12 +88,15 @@ const AppointmentsScreen = observer(() => {
 
   const loadAppointments = useCallback(async () => {
     try {
+      // Make sure module status is known before deciding to fetch
+      await moduleStore.ensureLoaded();
+      if (!moduleStore.appointments) return; // module disabled - skip
       // Always fetch all appointments, filtering happens in the store
       await appointmentStore.fetchAppointments();
     } catch (error) {
       console.error('Failed to load appointments:', error);
     }
-  }, [appointmentStore]);
+  }, [appointmentStore, moduleStore]);
 
   // Keep a stable ref for foreground listener
   const loadAppointmentsRef = useRef(loadAppointments);
@@ -98,11 +105,14 @@ const AppointmentsScreen = observer(() => {
   // Reload appointments every time the tab gets focus
   useFocusEffect(
     useCallback(() => {
-      appointmentStore
-        .fetchAppointments()
-        .then(() => setRefreshKey(k => k + 1))
-        .catch(err => console.error('Failed to reload:', err));
-    }, [appointmentStore]),
+      moduleStore.ensureLoaded().then(() => {
+        if (!moduleStore.appointments) return; // module disabled - skip
+        appointmentStore
+          .fetchAppointments()
+          .then(() => setRefreshKey(k => k + 1))
+          .catch(err => console.error('Failed to reload:', err));
+      });
+    }, [appointmentStore, moduleStore]),
   );
 
   useEffect(() => {
@@ -358,411 +368,448 @@ const AppointmentsScreen = observer(() => {
 
   return (
     <ScreenBackground>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.title}>Appointments</Text>
-          <Text style={styles.subtitle}>
-            {appointmentStore.dateRangeFrom
-              ? `${appointmentStore.filteredAppointments.length} in range`
-              : `${appointmentStore.filteredAppointments.length} upcoming`}
-          </Text>
-        </View>
-
-        {/* View Toggle */}
-        <View style={styles.viewToggle}>
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              viewMode === 'list' && styles.toggleButtonActive,
-            ]}
-            onPress={() => setViewMode('list')}
-          >
-            <Icon
-              name="list"
-              size={24}
-              color={viewMode === 'list' ? '#1890ff' : '#999'}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              viewMode === 'week' && styles.toggleButtonActive,
-            ]}
-            onPress={() => setViewMode('week')}
-          >
-            <Icon
-              name="calendar"
-              size={24}
-              color={viewMode === 'week' ? '#1890ff' : '#999'}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Show filters only in list view */}
-      {viewMode === 'list' && (
+      {moduleStore.isLoaded && !moduleStore.appointments ? (
+        <ModuleNotEnabled iconName="calendar" moduleName="Appointments" />
+      ) : !authStore.canAccessResource('appointments') ||
+        appointmentStore.permissionDenied ? (
+        <PermissionDenied iconName="calendar" featureName="Appointments" />
+      ) : (
         <>
-          {/* Status Filter Tabs */}
-          <View style={styles.filterContainer}>
-            <FlatList
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={STATUS_FILTERS}
-              keyExtractor={item => item.key}
-              renderItem={({ item }) => {
-                const isDateFilter = item.key === 'date';
-                const isDateActive =
-                  isDateFilter &&
-                  !!(
-                    appointmentStore.dateRangeFrom &&
-                    appointmentStore.dateRangeTo
-                  );
-                const isSelected =
-                  isDateActive ||
-                  appointmentStore.selectedStatus === item.key ||
-                  (!appointmentStore.selectedStatus && item.key === 'ALL');
-                const count = isDateFilter
-                  ? ''
-                  : appointmentStore.getStatusCount(item.key);
-                const statusColor = isDateFilter
-                  ? '#1890ff'
-                  : item.key === 'ALL'
-                  ? '#595959'
-                  : STATUS_COLORS[item.key] || '#595959';
-                const isGraySelected = isDateActive;
-
-                return (
-                  <TouchableOpacity
-                    style={[
-                      styles.filterTab,
-                      isSelected && !isGraySelected && styles.filterTabActive,
-                      isSelected &&
-                        !isGraySelected && {
-                          backgroundColor: STATUS_COLORS[item.key] || '#1890ff',
-                        },
-                      isGraySelected && styles.filterTabGrayActive,
-                    ]}
-                    onPress={() => handleStatusFilter(item.key)}
-                  >
-                    <Icon
-                      name={item.iconName || 'calendar'}
-                      size={14}
-                      color={
-                        isSelected && !isGraySelected ? '#fff' : statusColor
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.filterText,
-                        isSelected &&
-                          !isGraySelected &&
-                          styles.filterTextActive,
-                        isGraySelected && styles.filterTextGrayActive,
-                      ]}
-                    >
-                      {item.label} {count !== '' && `(${count})`}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              }}
-            />
-          </View>
-
-          {/* Error Message */}
-          {appointmentStore.error && (
-            <View style={styles.errorContainer}>
-              <Icon name="alert-circle" size={20} color="#d4380d" />
-              <Text style={styles.errorText}>{appointmentStore.error}</Text>
-              <TouchableOpacity
-                style={styles.retryButton}
-                onPress={loadAppointments}
-              >
-                <Text style={styles.retryText}>Retry</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Active Date Filter Indicator */}
-          {appointmentStore.dateRangeFrom && appointmentStore.dateRangeTo && (
-            <View style={styles.dateFilterActiveBanner}>
-              <View style={styles.dateFilterActiveLeft}>
-                <Icon name="time" size={16} color="#1890ff" />
-                <Text style={styles.dateFilterActiveText}>
-                  Appointments history from{' '}
-                  {format(new Date(appointmentStore.dateRangeFrom), 'MMM dd')}{' '}
-                  to{' '}
-                  {format(
-                    new Date(appointmentStore.dateRangeTo),
-                    'MMM dd, yyyy',
-                  )}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => appointmentStore.clearDateRange()}
-                style={styles.dateFilterClearBtn}
-              >
-                <Icon name="close-circle" size={20} color="#999" />
-              </TouchableOpacity>
-            </View>
-          )}
-        </>
-      )}
-
-      {/* Content based on view mode */}
-      {viewMode === 'list' ? (
-        <FlatList
-          data={appointmentStore.filteredAppointments}
-          extraData={refreshKey}
-          keyExtractor={item => item.id}
-          renderItem={renderAppointmentCard}
-          ListEmptyComponent={renderEmpty}
-          ListHeaderComponent={
-            <View style={styles.sectionHeader}>
-              <Icon
-                name={appointmentStore.dateRangeFrom ? 'time' : 'calendar'}
-                size={18}
-                color={appointmentStore.dateRangeFrom ? '#595959' : '#1890ff'}
-              />
-              <Text style={styles.sectionTitle}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <Text style={styles.title}>Appointments</Text>
+              <Text style={styles.subtitle}>
                 {appointmentStore.dateRangeFrom
-                  ? 'Appointments History'
-                  : 'My Next Appointments'}
+                  ? `${appointmentStore.filteredAppointments.length} in range`
+                  : `${appointmentStore.filteredAppointments.length} upcoming`}
               </Text>
             </View>
-          }
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#1890ff']}
-            />
-          }
-        />
-      ) : (
-        <WeekViewScreen
-          onAppointmentPress={handleViewAppointment}
-          onAddAppointment={handleCreateAppointmentForDate}
-        />
-      )}
 
-      {/* Floating Action Button */}
-      <TouchableOpacity style={styles.fab} onPress={handleCreateAppointment}>
-        <Text style={styles.fabIcon}>+</Text>
-      </TouchableOpacity>
+            {/* View Toggle */}
+            <View style={styles.viewToggle}>
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  viewMode === 'list' && styles.toggleButtonActive,
+                ]}
+                onPress={() => setViewMode('list')}
+              >
+                <Icon
+                  name="list"
+                  size={24}
+                  color={viewMode === 'list' ? '#1890ff' : '#999'}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  viewMode === 'week' && styles.toggleButtonActive,
+                ]}
+                onPress={() => setViewMode('week')}
+              >
+                <Icon
+                  name="calendar"
+                  size={24}
+                  color={viewMode === 'week' ? '#1890ff' : '#999'}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
 
-      {/* Date Filter Modal */}
-      <Modal
-        visible={showDateFilterModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowDateFilterModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowDateFilterModal(false)}>
-          <View style={styles.dateFilterOverlay}>
-            <TouchableWithoutFeedback onPress={() => {}}>
-              <View style={styles.dateFilterModal}>
-                {/* Header */}
-                <View style={styles.dateFilterHeader}>
-                  <Text style={styles.dateFilterTitle}>
-                    Appointments History
-                  </Text>
+          {/* Show filters only in list view */}
+          {viewMode === 'list' && (
+            <>
+              {/* Status Filter Tabs */}
+              <View style={styles.filterContainer}>
+                <FlatList
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  data={STATUS_FILTERS}
+                  keyExtractor={item => item.key}
+                  renderItem={({ item }) => {
+                    const isDateFilter = item.key === 'date';
+                    const isDateActive =
+                      isDateFilter &&
+                      !!(
+                        appointmentStore.dateRangeFrom &&
+                        appointmentStore.dateRangeTo
+                      );
+                    const isSelected =
+                      isDateActive ||
+                      appointmentStore.selectedStatus === item.key ||
+                      (!appointmentStore.selectedStatus && item.key === 'ALL');
+                    const count = isDateFilter
+                      ? ''
+                      : appointmentStore.getStatusCount(item.key);
+                    const statusColor = isDateFilter
+                      ? '#1890ff'
+                      : item.key === 'ALL'
+                      ? '#595959'
+                      : STATUS_COLORS[item.key] || '#595959';
+                    const isGraySelected = isDateActive;
+
+                    return (
+                      <TouchableOpacity
+                        style={[
+                          styles.filterTab,
+                          isSelected &&
+                            !isGraySelected &&
+                            styles.filterTabActive,
+                          isSelected &&
+                            !isGraySelected && {
+                              backgroundColor:
+                                STATUS_COLORS[item.key] || '#1890ff',
+                            },
+                          isGraySelected && styles.filterTabGrayActive,
+                        ]}
+                        onPress={() => handleStatusFilter(item.key)}
+                      >
+                        <Icon
+                          name={item.iconName || 'calendar'}
+                          size={14}
+                          color={
+                            isSelected && !isGraySelected ? '#fff' : statusColor
+                          }
+                        />
+                        <Text
+                          style={[
+                            styles.filterText,
+                            isSelected &&
+                              !isGraySelected &&
+                              styles.filterTextActive,
+                            isGraySelected && styles.filterTextGrayActive,
+                          ]}
+                        >
+                          {item.label} {count !== '' && `(${count})`}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  }}
+                />
+              </View>
+
+              {/* Error Message */}
+              {appointmentStore.error && (
+                <View style={styles.errorContainer}>
+                  <Icon name="alert-circle" size={20} color="#d4380d" />
+                  <Text style={styles.errorText}>{appointmentStore.error}</Text>
                   <TouchableOpacity
-                    onPress={() => setShowDateFilterModal(false)}
+                    style={styles.retryButton}
+                    onPress={loadAppointments}
                   >
-                    <Icon name="close" size={24} color="#999" />
+                    <Text style={styles.retryText}>Retry</Text>
                   </TouchableOpacity>
                 </View>
+              )}
 
-                <ScrollView
-                  style={styles.dateFilterBody}
-                  showsVerticalScrollIndicator={false}
-                >
-                  {/* From Date */}
-                  <Text style={styles.dateFilterLabel}>From</Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.dateField,
-                      activePicker === 'from' && styles.dateFieldActive,
-                    ]}
-                    onPress={() =>
-                      setActivePicker(activePicker === 'from' ? null : 'from')
-                    }
-                  >
-                    <Icon name="calendar" size={20} color="#1890ff" />
-                    <Text style={styles.dateFieldText}>
-                      {format(tempFromDate, 'MMM dd, yyyy')}
-                    </Text>
-                    <Icon
-                      name={
-                        activePicker === 'from' ? 'chevron-up' : 'chevron-down'
-                      }
-                      size={18}
-                      color="#999"
-                      style={styles.dateFieldChevron}
-                    />
-                  </TouchableOpacity>
-                  {activePicker === 'from' && (
-                    <View style={styles.pickerContainer}>
-                      <DateTimePicker
-                        value={tempFromDate}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={(_event, pickedDate) => {
-                          if (pickedDate) {
-                            setTempFromDate(pickedDate);
-                            if (pickedDate > tempToDate) {
-                              setTempToDate(pickedDate);
-                            }
-                          }
-                          if (Platform.OS === 'android') {
-                            setActivePicker(null);
-                          }
-                        }}
-                        themeVariant="light"
-                      />
-                      {Platform.OS === 'ios' && (
-                        <TouchableOpacity
-                          style={styles.pickerDoneBtn}
-                          onPress={() => setActivePicker(null)}
-                        >
-                          <Text style={styles.pickerDoneText}>Done</Text>
-                        </TouchableOpacity>
-                      )}
+              {/* Active Date Filter Indicator */}
+              {appointmentStore.dateRangeFrom &&
+                appointmentStore.dateRangeTo && (
+                  <View style={styles.dateFilterActiveBanner}>
+                    <View style={styles.dateFilterActiveLeft}>
+                      <Icon name="time" size={16} color="#1890ff" />
+                      <Text style={styles.dateFilterActiveText}>
+                        Appointments history from{' '}
+                        {format(
+                          new Date(appointmentStore.dateRangeFrom),
+                          'MMM dd',
+                        )}{' '}
+                        to{' '}
+                        {format(
+                          new Date(appointmentStore.dateRangeTo),
+                          'MMM dd, yyyy',
+                        )}
+                      </Text>
                     </View>
-                  )}
-
-                  {/* To Date */}
-                  <Text
-                    style={[
-                      styles.dateFilterLabel,
-                      styles.dateFilterLabelSpaced,
-                    ]}
-                  >
-                    To
-                  </Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.dateField,
-                      activePicker === 'to' && styles.dateFieldActive,
-                    ]}
-                    onPress={() =>
-                      setActivePicker(activePicker === 'to' ? null : 'to')
-                    }
-                  >
-                    <Icon name="calendar" size={20} color="#1890ff" />
-                    <Text style={styles.dateFieldText}>
-                      {format(tempToDate, 'MMM dd, yyyy')}
-                    </Text>
-                    <Icon
-                      name={
-                        activePicker === 'to' ? 'chevron-up' : 'chevron-down'
-                      }
-                      size={18}
-                      color="#999"
-                      style={styles.dateFieldChevron}
-                    />
-                  </TouchableOpacity>
-                  {activePicker === 'to' && (
-                    <View style={styles.pickerContainer}>
-                      <DateTimePicker
-                        value={tempToDate}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={(_event, pickedDate) => {
-                          if (pickedDate) {
-                            setTempToDate(pickedDate);
-                          }
-                          if (Platform.OS === 'android') {
-                            setActivePicker(null);
-                          }
-                        }}
-                        minimumDate={tempFromDate}
-                        themeVariant="light"
-                      />
-                      {Platform.OS === 'ios' && (
-                        <TouchableOpacity
-                          style={styles.pickerDoneBtn}
-                          onPress={() => setActivePicker(null)}
-                        >
-                          <Text style={styles.pickerDoneText}>Done</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  )}
-
-                  {/* Current Active Filter Info */}
-                  {appointmentStore.dateRangeFrom &&
-                    appointmentStore.dateRangeTo && (
-                      <View style={styles.currentFilterInfo}>
-                        <Icon
-                          name="information-circle"
-                          size={16}
-                          color="#fa8c16"
-                        />
-                        <Text style={styles.currentFilterText}>
-                          Current history:{' '}
-                          {format(
-                            new Date(appointmentStore.dateRangeFrom),
-                            'MMM dd',
-                          )}{' '}
-                          —{' '}
-                          {format(
-                            new Date(appointmentStore.dateRangeTo),
-                            'MMM dd, yyyy',
-                          )}
-                        </Text>
-                      </View>
-                    )}
-                </ScrollView>
-
-                {/* Action Buttons */}
-                <View style={styles.dateFilterActions}>
-                  <TouchableOpacity
-                    style={styles.dateFilterClearButton}
-                    onPress={clearDateFilter}
-                  >
-                    <Text style={styles.dateFilterClearText}>Clear Filter</Text>
-                  </TouchableOpacity>
-                  <View style={styles.dateFilterActionRight}>
                     <TouchableOpacity
-                      style={styles.dateFilterCancelButton}
-                      onPress={() => setShowDateFilterModal(false)}
+                      onPress={() => appointmentStore.clearDateRange()}
+                      style={styles.dateFilterClearBtn}
                     >
-                      <Text style={styles.dateFilterCancelText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.dateFilterApplyButton}
-                      onPress={applyDateFilter}
-                    >
-                      <Text style={styles.dateFilterApplyText}>Apply</Text>
+                      <Icon name="close-circle" size={20} color="#999" />
                     </TouchableOpacity>
                   </View>
+                )}
+            </>
+          )}
+
+          {/* Content based on view mode */}
+          {viewMode === 'list' ? (
+            <FlatList
+              data={appointmentStore.filteredAppointments}
+              extraData={refreshKey}
+              keyExtractor={item => item.id}
+              renderItem={renderAppointmentCard}
+              ListEmptyComponent={renderEmpty}
+              ListHeaderComponent={
+                <View style={styles.sectionHeader}>
+                  <Icon
+                    name={appointmentStore.dateRangeFrom ? 'time' : 'calendar'}
+                    size={18}
+                    color={
+                      appointmentStore.dateRangeFrom ? '#595959' : '#1890ff'
+                    }
+                  />
+                  <Text style={styles.sectionTitle}>
+                    {appointmentStore.dateRangeFrom
+                      ? 'Appointments History'
+                      : 'My Next Appointments'}
+                  </Text>
                 </View>
+              }
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={['#1890ff']}
+                />
+              }
+            />
+          ) : (
+            <WeekViewScreen
+              onAppointmentPress={handleViewAppointment}
+              onAddAppointment={handleCreateAppointmentForDate}
+            />
+          )}
+
+          {/* Floating Action Button */}
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={handleCreateAppointment}
+          >
+            <Text style={styles.fabIcon}>+</Text>
+          </TouchableOpacity>
+
+          {/* Date Filter Modal */}
+          <Modal
+            visible={showDateFilterModal}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setShowDateFilterModal(false)}
+          >
+            <TouchableWithoutFeedback
+              onPress={() => setShowDateFilterModal(false)}
+            >
+              <View style={styles.dateFilterOverlay}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View style={styles.dateFilterModal}>
+                    {/* Header */}
+                    <View style={styles.dateFilterHeader}>
+                      <Text style={styles.dateFilterTitle}>
+                        Appointments History
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => setShowDateFilterModal(false)}
+                      >
+                        <Icon name="close" size={24} color="#999" />
+                      </TouchableOpacity>
+                    </View>
+
+                    <ScrollView
+                      style={styles.dateFilterBody}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {/* From Date */}
+                      <Text style={styles.dateFilterLabel}>From</Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.dateField,
+                          activePicker === 'from' && styles.dateFieldActive,
+                        ]}
+                        onPress={() =>
+                          setActivePicker(
+                            activePicker === 'from' ? null : 'from',
+                          )
+                        }
+                      >
+                        <Icon name="calendar" size={20} color="#1890ff" />
+                        <Text style={styles.dateFieldText}>
+                          {format(tempFromDate, 'MMM dd, yyyy')}
+                        </Text>
+                        <Icon
+                          name={
+                            activePicker === 'from'
+                              ? 'chevron-up'
+                              : 'chevron-down'
+                          }
+                          size={18}
+                          color="#999"
+                          style={styles.dateFieldChevron}
+                        />
+                      </TouchableOpacity>
+                      {activePicker === 'from' && (
+                        <View style={styles.pickerContainer}>
+                          <DateTimePicker
+                            value={tempFromDate}
+                            mode="date"
+                            display={
+                              Platform.OS === 'ios' ? 'spinner' : 'default'
+                            }
+                            onChange={(_event, pickedDate) => {
+                              if (pickedDate) {
+                                setTempFromDate(pickedDate);
+                                if (pickedDate > tempToDate) {
+                                  setTempToDate(pickedDate);
+                                }
+                              }
+                              if (Platform.OS === 'android') {
+                                setActivePicker(null);
+                              }
+                            }}
+                            themeVariant="light"
+                          />
+                          {Platform.OS === 'ios' && (
+                            <TouchableOpacity
+                              style={styles.pickerDoneBtn}
+                              onPress={() => setActivePicker(null)}
+                            >
+                              <Text style={styles.pickerDoneText}>Done</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      )}
+
+                      {/* To Date */}
+                      <Text
+                        style={[
+                          styles.dateFilterLabel,
+                          styles.dateFilterLabelSpaced,
+                        ]}
+                      >
+                        To
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.dateField,
+                          activePicker === 'to' && styles.dateFieldActive,
+                        ]}
+                        onPress={() =>
+                          setActivePicker(activePicker === 'to' ? null : 'to')
+                        }
+                      >
+                        <Icon name="calendar" size={20} color="#1890ff" />
+                        <Text style={styles.dateFieldText}>
+                          {format(tempToDate, 'MMM dd, yyyy')}
+                        </Text>
+                        <Icon
+                          name={
+                            activePicker === 'to'
+                              ? 'chevron-up'
+                              : 'chevron-down'
+                          }
+                          size={18}
+                          color="#999"
+                          style={styles.dateFieldChevron}
+                        />
+                      </TouchableOpacity>
+                      {activePicker === 'to' && (
+                        <View style={styles.pickerContainer}>
+                          <DateTimePicker
+                            value={tempToDate}
+                            mode="date"
+                            display={
+                              Platform.OS === 'ios' ? 'spinner' : 'default'
+                            }
+                            onChange={(_event, pickedDate) => {
+                              if (pickedDate) {
+                                setTempToDate(pickedDate);
+                              }
+                              if (Platform.OS === 'android') {
+                                setActivePicker(null);
+                              }
+                            }}
+                            minimumDate={tempFromDate}
+                            themeVariant="light"
+                          />
+                          {Platform.OS === 'ios' && (
+                            <TouchableOpacity
+                              style={styles.pickerDoneBtn}
+                              onPress={() => setActivePicker(null)}
+                            >
+                              <Text style={styles.pickerDoneText}>Done</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      )}
+
+                      {/* Current Active Filter Info */}
+                      {appointmentStore.dateRangeFrom &&
+                        appointmentStore.dateRangeTo && (
+                          <View style={styles.currentFilterInfo}>
+                            <Icon
+                              name="information-circle"
+                              size={16}
+                              color="#fa8c16"
+                            />
+                            <Text style={styles.currentFilterText}>
+                              Current history:{' '}
+                              {format(
+                                new Date(appointmentStore.dateRangeFrom),
+                                'MMM dd',
+                              )}{' '}
+                              —{' '}
+                              {format(
+                                new Date(appointmentStore.dateRangeTo),
+                                'MMM dd, yyyy',
+                              )}
+                            </Text>
+                          </View>
+                        )}
+                    </ScrollView>
+
+                    {/* Action Buttons */}
+                    <View style={styles.dateFilterActions}>
+                      <TouchableOpacity
+                        style={styles.dateFilterClearButton}
+                        onPress={clearDateFilter}
+                      >
+                        <Text style={styles.dateFilterClearText}>
+                          Clear Filter
+                        </Text>
+                      </TouchableOpacity>
+                      <View style={styles.dateFilterActionRight}>
+                        <TouchableOpacity
+                          style={styles.dateFilterCancelButton}
+                          onPress={() => setShowDateFilterModal(false)}
+                        >
+                          <Text style={styles.dateFilterCancelText}>
+                            Cancel
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.dateFilterApplyButton}
+                          onPress={applyDateFilter}
+                        >
+                          <Text style={styles.dateFilterApplyText}>Apply</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                </TouchableWithoutFeedback>
               </View>
             </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+          </Modal>
 
-      {/* Form Modal */}
-      <AppointmentFormModal
-        visible={showFormModal}
-        onClose={() => setShowFormModal(false)}
-        appointment={selectedAppointment}
-        preselectedDate={selectedDate}
-        onSuccess={handleFormSuccess}
-      />
+          {/* Form Modal */}
+          <AppointmentFormModal
+            visible={showFormModal}
+            onClose={() => setShowFormModal(false)}
+            appointment={selectedAppointment}
+            preselectedDate={selectedDate}
+            onSuccess={handleFormSuccess}
+          />
 
-      {/* Details Modal */}
-      <AppointmentDetailsModal
-        visible={showDetailsModal}
-        onClose={() => setShowDetailsModal(false)}
-        appointment={selectedAppointment}
-        onEdit={handleEditAppointment}
-        onSuccess={handleFormSuccess}
-      />
+          {/* Details Modal */}
+          <AppointmentDetailsModal
+            visible={showDetailsModal}
+            onClose={() => setShowDetailsModal(false)}
+            appointment={selectedAppointment}
+            onEdit={handleEditAppointment}
+            onSuccess={handleFormSuccess}
+          />
+        </>
+      )}
     </ScreenBackground>
   );
 });

@@ -33,6 +33,10 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { format } from 'date-fns';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import ScreenBackground from '../../components/common/ScreenBackground';
+import ModuleNotEnabled from '../../components/common/ModuleNotEnabled';
+import PermissionDenied from '../../components/common/PermissionDenied';
+import { useModule, useAuth } from '../../stores';
+import { isPermissionDeniedError } from '../../utils/errors';
 import {
   ordersService,
   Order,
@@ -99,9 +103,12 @@ const ALL_STATUSES: OrderStatus[] = [
 ];
 
 const OrdersScreen = observer(() => {
+  const moduleStore = useModule();
+  const authStore = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>('ACTIVE');
   const [dateRangeFrom, setDateRangeFrom] = useState<Date | null>(null);
   const [dateRangeTo, setDateRangeTo] = useState<Date | null>(null);
@@ -114,18 +121,44 @@ const OrdersScreen = observer(() => {
 
   const loadOrders = useCallback(
     async (isRefresh = false) => {
+      // Make sure module status is known before deciding to fetch
+      await moduleStore.ensureLoaded();
+      if (!moduleStore.orders) {
+        // Module disabled - skip API call, show nothing
+        setOrders([]);
+        setLoading(false);
+        setRefreshing(false);
+        setPermissionDenied(false);
+        return;
+      }
+      // No group permission - skip API call (backend enforces orders:view too)
+      if (!authStore.canAccessResource('orders')) {
+        setOrders([]);
+        setLoading(false);
+        setRefreshing(false);
+        setPermissionDenied(true);
+        return;
+      }
+
       isRefresh ? setRefreshing(true) : setLoading(true);
       try {
         const data = await ordersService.getOrders();
         setOrders(data);
+        setPermissionDenied(false);
       } catch (error) {
-        console.error('Failed to load orders:', error);
+        if (isPermissionDeniedError(error)) {
+          // User was rejected by the API - show a friendly message
+          setOrders([]);
+          setPermissionDenied(true);
+        } else {
+          console.error('Failed to load orders:', error);
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [],
+    [moduleStore, authStore],
   );
 
   const loadOrdersRef = useRef(loadOrders);
@@ -315,18 +348,15 @@ const OrdersScreen = observer(() => {
 
     return (
       <View style={styles.emptyContainer}>
-        <Icon
-          name="cart"
-          size={64}
-          color="#d9d9d9"
-          style={styles.emptyIcon}
-        />
+        <Icon name="cart" size={64} color="#d9d9d9" style={styles.emptyIcon} />
         <Text style={styles.emptyTitle}>No Orders</Text>
         <Text style={styles.emptyText}>
           {dateRangeFrom && dateRangeTo
             ? 'No orders found in the selected range'
             : selectedStatus && selectedStatus !== 'ALL'
-            ? `No ${STATUS_LABELS[selectedStatus]?.toLowerCase() || 'matching'} orders found`
+            ? `No ${
+                STATUS_LABELS[selectedStatus]?.toLowerCase() || 'matching'
+              } orders found`
             : 'Orders will appear here when customers place them through AI'}
         </Text>
       </View>
@@ -334,440 +364,454 @@ const OrdersScreen = observer(() => {
   };
 
   const renderStatusOptions = () => {
-    return selected
-      ? ALL_STATUSES.filter(s => s !== 'CANCELED')
-      : [];
+    return selected ? ALL_STATUSES.filter(s => s !== 'CANCELED') : [];
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScreenBackground>
-        <View style={styles.container}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Text style={styles.title}>Orders</Text>
-              <Text style={styles.subtitle}>
-                {dateRangeFrom && dateRangeTo
-                  ? `${filteredOrders.length} in range`
-                  : `${filteredOrders.length} active`}
-              </Text>
-            </View>
-          </View>
-
-          {/* Status Filter Tabs */}
-          <View style={styles.filterContainer}>
-            <FlatList
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={STATUS_FILTERS}
-              keyExtractor={item => item.key}
-              renderItem={({ item }) => {
-                const isDateFilter = item.key === 'date';
-                const isDateActive =
-                  isDateFilter && !!(dateRangeFrom && dateRangeTo);
-                const isSelected =
-                  isDateActive || selectedStatus === item.key;
-                const statusColor = isDateFilter
-                  ? '#1890ff'
-                  : item.key === 'ALL' || item.key === 'ACTIVE'
-                  ? '#595959'
-                  : STATUS_COLORS[item.key] || '#595959';
-
-                return (
-                  <TouchableOpacity
-                    style={[
-                      styles.filterTab,
-                      isSelected &&
-                        !isDateActive &&
-                        styles.filterTabActive,
-                      isSelected &&
-                        !isDateActive && {
-                          backgroundColor:
-                            STATUS_COLORS[item.key] || '#1890ff',
-                        },
-                      isDateActive && styles.filterTabGrayActive,
-                    ]}
-                    onPress={() => handleStatusFilter(item.key)}
-                  >
-                    <Icon
-                      name={item.iconName || 'list'}
-                      size={14}
-                      color={isSelected && !isDateActive ? '#fff' : statusColor}
-                    />
-                    <Text
-                      style={[
-                        styles.filterText,
-                        isSelected && !isDateActive && styles.filterTextActive,
-                        isDateActive && styles.filterTextGrayActive,
-                      ]}
-                    >
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              }}
-            />
-          </View>
-
-          {/* Active Date Filter Indicator */}
-          {dateRangeFrom && dateRangeTo && (
-            <View style={styles.dateFilterActiveBanner}>
-              <View style={styles.dateFilterActiveLeft}>
-                <Icon name="time" size={16} color="#1890ff" />
-                <Text style={styles.dateFilterActiveText}>
-                  Orders history from{' '}
-                  {format(new Date(dateRangeFrom), 'MMM dd')} to{' '}
-                  {format(new Date(dateRangeTo), 'MMM dd, yyyy')}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={clearDateFilter}
-                style={styles.dateFilterClearBtn}
-              >
-                <Icon name="close-circle" size={20} color="#999" />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Orders List */}
-          <FlatList
-            data={filteredOrders}
-            keyExtractor={item => item.id}
-            renderItem={renderOrderCard}
-            ListEmptyComponent={renderEmpty}
-            ListHeaderComponent={
-              <View style={styles.sectionHeader}>
-                <Icon
-                  name={dateRangeFrom ? 'time' : 'cart'}
-                  size={18}
-                  color={dateRangeFrom ? '#595959' : '#1890ff'}
-                />
-                <Text style={styles.sectionTitle}>
+      {moduleStore.isLoaded && !moduleStore.orders ? (
+        <ModuleNotEnabled iconName="cart" moduleName="Orders" />
+      ) : !authStore.canAccessResource('orders') || permissionDenied ? (
+        <PermissionDenied iconName="cart" featureName="Orders" />
+      ) : (
+        <ScreenBackground>
+          <View style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+              <View style={styles.headerLeft}>
+                <Text style={styles.title}>Orders</Text>
+                <Text style={styles.subtitle}>
                   {dateRangeFrom && dateRangeTo
-                    ? 'Orders History'
-                    : selectedStatus === 'ALL'
-                    ? 'All Orders'
-                    : 'Active Orders'}
+                    ? `${filteredOrders.length} in range`
+                    : `${filteredOrders.length} active`}
                 </Text>
               </View>
-            }
-            contentContainerStyle={styles.listContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => loadOrders(true)}
-                colors={['#1890ff']}
-              />
-            }
-          />
+            </View>
 
-          {/* Date Filter Modal */}
-          <Modal
-            visible={showDateFilterModal}
-            animationType="slide"
-            transparent
-            onRequestClose={() => setShowDateFilterModal(false)}
-          >
-            <TouchableWithoutFeedback
-              onPress={() => setShowDateFilterModal(false)}
-            >
-              <View style={styles.dateFilterOverlay}>
-                <TouchableWithoutFeedback onPress={() => {}}>
-                  <View style={styles.dateFilterModal}>
-                    <View style={styles.dateFilterHeader}>
-                      <Text style={styles.dateFilterTitle}>
-                        Orders History
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => setShowDateFilterModal(false)}
-                      >
-                        <Icon name="close" size={24} color="#999" />
-                      </TouchableOpacity>
-                    </View>
+            {/* Status Filter Tabs */}
+            <View style={styles.filterContainer}>
+              <FlatList
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                data={STATUS_FILTERS}
+                keyExtractor={item => item.key}
+                renderItem={({ item }) => {
+                  const isDateFilter = item.key === 'date';
+                  const isDateActive =
+                    isDateFilter && !!(dateRangeFrom && dateRangeTo);
+                  const isSelected =
+                    isDateActive || selectedStatus === item.key;
+                  const statusColor = isDateFilter
+                    ? '#1890ff'
+                    : item.key === 'ALL' || item.key === 'ACTIVE'
+                    ? '#595959'
+                    : STATUS_COLORS[item.key] || '#595959';
 
-                    <ScrollView showsVerticalScrollIndicator={false}>
-                      <Text style={styles.dateFilterLabel}>From</Text>
-                      <TouchableOpacity
-                        style={[
-                          styles.dateField,
-                          activePicker === 'from' && styles.dateFieldActive,
-                        ]}
-                        onPress={() =>
-                          setActivePicker(activePicker === 'from' ? null : 'from')
-                        }
-                      >
-                        <Icon name="calendar" size={20} color="#1890ff" />
-                        <Text style={styles.dateFieldText}>
-                          {format(tempFromDate, 'MMM dd, yyyy')}
-                        </Text>
-                        <Icon
-                          name={
-                            activePicker === 'from'
-                              ? 'chevron-up'
-                              : 'chevron-down'
-                          }
-                          size={18}
-                          color="#999"
-                        />
-                      </TouchableOpacity>
-                      {activePicker === 'from' && (
-                        <View style={styles.pickerContainer}>
-                          <DateTimePicker
-                            value={tempFromDate}
-                            mode="date"
-                            display={
-                              Platform.OS === 'ios' ? 'spinner' : 'default'
-                            }
-                            onChange={(_event, pickedDate) => {
-                              if (pickedDate) {
-                                setTempFromDate(pickedDate);
-                                if (pickedDate > tempToDate) {
-                                  setTempToDate(pickedDate);
-                                }
-                              }
-                              if (Platform.OS === 'android') {
-                                setActivePicker(null);
-                              }
-                            }}
-                            themeVariant="light"
-                          />
-                          {Platform.OS === 'ios' && (
-                            <TouchableOpacity
-                              style={styles.pickerDoneBtn}
-                              onPress={() => setActivePicker(null)}
-                            >
-                              <Text style={styles.pickerDoneText}>Done</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      )}
-
-                      <Text
-                        style={[
-                          styles.dateFilterLabel,
-                          styles.dateFilterLabelSpaced,
-                        ]}
-                      >
-                        To
-                      </Text>
-                      <TouchableOpacity
-                        style={[
-                          styles.dateField,
-                          activePicker === 'to' && styles.dateFieldActive,
-                        ]}
-                        onPress={() =>
-                          setActivePicker(activePicker === 'to' ? null : 'to')
-                        }
-                      >
-                        <Icon name="calendar" size={20} color="#1890ff" />
-                        <Text style={styles.dateFieldText}>
-                          {format(tempToDate, 'MMM dd, yyyy')}
-                        </Text>
-                        <Icon
-                          name={
-                            activePicker === 'to'
-                              ? 'chevron-up'
-                              : 'chevron-down'
-                          }
-                          size={18}
-                          color="#999"
-                        />
-                      </TouchableOpacity>
-                      {activePicker === 'to' && (
-                        <View style={styles.pickerContainer}>
-                          <DateTimePicker
-                            value={tempToDate}
-                            mode="date"
-                            display={
-                              Platform.OS === 'ios' ? 'spinner' : 'default'
-                            }
-                            onChange={(_event, pickedDate) => {
-                              if (pickedDate) {
-                                setTempToDate(pickedDate);
-                              }
-                              if (Platform.OS === 'android') {
-                                setActivePicker(null);
-                              }
-                            }}
-                            minimumDate={tempFromDate}
-                            themeVariant="light"
-                          />
-                          {Platform.OS === 'ios' && (
-                            <TouchableOpacity
-                              style={styles.pickerDoneBtn}
-                              onPress={() => setActivePicker(null)}
-                            >
-                              <Text style={styles.pickerDoneText}>Done</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      )}
-                    </ScrollView>
-
-                    <View style={styles.dateFilterActions}>
-                      <TouchableOpacity
-                        style={styles.dateFilterClearButton}
-                        onPress={clearDateFilter}
-                      >
-                        <Text style={styles.dateFilterClearText}>
-                          Clear Filter
-                        </Text>
-                      </TouchableOpacity>
-                      <View style={styles.dateFilterActionRight}>
-                        <TouchableOpacity
-                          style={styles.dateFilterCancelButton}
-                          onPress={() => setShowDateFilterModal(false)}
-                        >
-                          <Text style={styles.dateFilterCancelText}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.dateFilterApplyButton}
-                          onPress={applyDateFilter}
-                        >
-                          <Text style={styles.dateFilterApplyText}>Apply</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </View>
-                </TouchableWithoutFeedback>
-              </View>
-            </TouchableWithoutFeedback>
-          </Modal>
-
-          {/* Order Details Modal */}
-          <Modal
-            visible={!!selected}
-            animationType="slide"
-            transparent
-            onRequestClose={() => setSelected(null)}
-          >
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalCard}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Order Details</Text>
-                  <TouchableOpacity onPress={() => setSelected(null)}>
-                    <Icon name="close" size={24} color="#666" />
-                  </TouchableOpacity>
-                </View>
-
-                {selected && (
-                  <ScrollView showsVerticalScrollIndicator={false}>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Customer</Text>
-                      <Text style={styles.detailValue}>
-                        {selected.customerName}
-                      </Text>
-                    </View>
-                    {selected.customerPhone && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Phone</Text>
-                        <Text style={styles.detailValue}>
-                          {selected.customerPhone}
-                        </Text>
-                      </View>
-                    )}
-                    {selected.address && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Address</Text>
-                        <Text style={styles.detailValue}>
-                          {selected.address}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Method</Text>
-                      <Text style={styles.detailValue}>
-                        {selected.deliveryMethod === 'pickup'
-                          ? 'Pickup'
-                          : 'Delivery'}
-                      </Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Total</Text>
-                      <Text style={styles.detailValue}>
-                        ${(selected.totalAmount ?? 0).toFixed(2)}
-                      </Text>
-                    </View>
-
-                    <Text style={styles.itemsTitle}>Items</Text>
-                    {selected.items.map(item => (
-                      <View key={item.id} style={styles.itemRow}>
-                        <Text style={styles.itemName}>
-                          {item.quantity}× {item.productName}
-                        </Text>
-                        <Text style={styles.itemPrice}>
-                          ${(item.totalPrice ?? 0).toFixed(2)}
-                        </Text>
-                      </View>
-                    ))}
-
-                    {selected.customerNotes && (
-                      <View style={styles.notesBlock}>
-                        <Text style={styles.detailLabel}>Notes</Text>
-                        <Text style={styles.detailValue}>
-                          {selected.customerNotes}
-                        </Text>
-                      </View>
-                    )}
-
-                    <Text style={styles.itemsTitle}>Status</Text>
-                    <View style={styles.statusOptions}>
-                      {renderStatusOptions().map(status => (
-                        <TouchableOpacity
-                          key={status}
-                          style={[
-                            styles.statusOption,
-                            selected.status === status &&
-                              styles.statusOptionActive,
-                          ]}
-                          onPress={() => handleStatusChange(selected, status)}
-                          disabled={updatingId === selected.id}
-                        >
-                          <Text
-                            style={[
-                              styles.statusOptionText,
-                              selected.status === status &&
-                                styles.statusOptionTextActive,
-                            ]}
-                          >
-                            {STATUS_LABELS[status]}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-
+                  return (
                     <TouchableOpacity
                       style={[
-                        styles.paidButton,
-                        selected.isPaid && styles.paidButtonActive,
+                        styles.filterTab,
+                        isSelected && !isDateActive && styles.filterTabActive,
+                        isSelected &&
+                          !isDateActive && {
+                            backgroundColor:
+                              STATUS_COLORS[item.key] || '#1890ff',
+                          },
+                        isDateActive && styles.filterTabGrayActive,
                       ]}
-                      onPress={() => handleTogglePaid(selected)}
-                      disabled={updatingId === selected.id}
+                      onPress={() => handleStatusFilter(item.key)}
                     >
                       <Icon
-                        name={
-                          selected.isPaid ? 'checkmark-circle' : 'card-outline'
+                        name={item.iconName || 'list'}
+                        size={14}
+                        color={
+                          isSelected && !isDateActive ? '#fff' : statusColor
                         }
-                        size={18}
-                        color={selected.isPaid ? '#fff' : '#1890ff'}
                       />
                       <Text
                         style={[
-                          styles.paidButtonText,
-                          selected.isPaid && styles.paidButtonTextActive,
+                          styles.filterText,
+                          isSelected &&
+                            !isDateActive &&
+                            styles.filterTextActive,
+                          isDateActive && styles.filterTextGrayActive,
                         ]}
                       >
-                        {selected.isPaid ? 'Marked as Paid' : 'Mark as Paid'}
+                        {item.label}
                       </Text>
                     </TouchableOpacity>
-                  </ScrollView>
-                )}
-              </View>
+                  );
+                }}
+              />
             </View>
-          </Modal>
-        </View>
-      </ScreenBackground>
+
+            {/* Active Date Filter Indicator */}
+            {dateRangeFrom && dateRangeTo && (
+              <View style={styles.dateFilterActiveBanner}>
+                <View style={styles.dateFilterActiveLeft}>
+                  <Icon name="time" size={16} color="#1890ff" />
+                  <Text style={styles.dateFilterActiveText}>
+                    Orders history from{' '}
+                    {format(new Date(dateRangeFrom), 'MMM dd')} to{' '}
+                    {format(new Date(dateRangeTo), 'MMM dd, yyyy')}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={clearDateFilter}
+                  style={styles.dateFilterClearBtn}
+                >
+                  <Icon name="close-circle" size={20} color="#999" />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Orders List */}
+            <FlatList
+              data={filteredOrders}
+              keyExtractor={item => item.id}
+              renderItem={renderOrderCard}
+              ListEmptyComponent={renderEmpty}
+              ListHeaderComponent={
+                <View style={styles.sectionHeader}>
+                  <Icon
+                    name={dateRangeFrom ? 'time' : 'cart'}
+                    size={18}
+                    color={dateRangeFrom ? '#595959' : '#1890ff'}
+                  />
+                  <Text style={styles.sectionTitle}>
+                    {dateRangeFrom && dateRangeTo
+                      ? 'Orders History'
+                      : selectedStatus === 'ALL'
+                      ? 'All Orders'
+                      : 'Active Orders'}
+                  </Text>
+                </View>
+              }
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={() => loadOrders(true)}
+                  colors={['#1890ff']}
+                />
+              }
+            />
+
+            {/* Date Filter Modal */}
+            <Modal
+              visible={showDateFilterModal}
+              animationType="slide"
+              transparent
+              onRequestClose={() => setShowDateFilterModal(false)}
+            >
+              <TouchableWithoutFeedback
+                onPress={() => setShowDateFilterModal(false)}
+              >
+                <View style={styles.dateFilterOverlay}>
+                  <TouchableWithoutFeedback onPress={() => {}}>
+                    <View style={styles.dateFilterModal}>
+                      <View style={styles.dateFilterHeader}>
+                        <Text style={styles.dateFilterTitle}>
+                          Orders History
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => setShowDateFilterModal(false)}
+                        >
+                          <Icon name="close" size={24} color="#999" />
+                        </TouchableOpacity>
+                      </View>
+
+                      <ScrollView showsVerticalScrollIndicator={false}>
+                        <Text style={styles.dateFilterLabel}>From</Text>
+                        <TouchableOpacity
+                          style={[
+                            styles.dateField,
+                            activePicker === 'from' && styles.dateFieldActive,
+                          ]}
+                          onPress={() =>
+                            setActivePicker(
+                              activePicker === 'from' ? null : 'from',
+                            )
+                          }
+                        >
+                          <Icon name="calendar" size={20} color="#1890ff" />
+                          <Text style={styles.dateFieldText}>
+                            {format(tempFromDate, 'MMM dd, yyyy')}
+                          </Text>
+                          <Icon
+                            name={
+                              activePicker === 'from'
+                                ? 'chevron-up'
+                                : 'chevron-down'
+                            }
+                            size={18}
+                            color="#999"
+                          />
+                        </TouchableOpacity>
+                        {activePicker === 'from' && (
+                          <View style={styles.pickerContainer}>
+                            <DateTimePicker
+                              value={tempFromDate}
+                              mode="date"
+                              display={
+                                Platform.OS === 'ios' ? 'spinner' : 'default'
+                              }
+                              onChange={(_event, pickedDate) => {
+                                if (pickedDate) {
+                                  setTempFromDate(pickedDate);
+                                  if (pickedDate > tempToDate) {
+                                    setTempToDate(pickedDate);
+                                  }
+                                }
+                                if (Platform.OS === 'android') {
+                                  setActivePicker(null);
+                                }
+                              }}
+                              themeVariant="light"
+                            />
+                            {Platform.OS === 'ios' && (
+                              <TouchableOpacity
+                                style={styles.pickerDoneBtn}
+                                onPress={() => setActivePicker(null)}
+                              >
+                                <Text style={styles.pickerDoneText}>Done</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        )}
+
+                        <Text
+                          style={[
+                            styles.dateFilterLabel,
+                            styles.dateFilterLabelSpaced,
+                          ]}
+                        >
+                          To
+                        </Text>
+                        <TouchableOpacity
+                          style={[
+                            styles.dateField,
+                            activePicker === 'to' && styles.dateFieldActive,
+                          ]}
+                          onPress={() =>
+                            setActivePicker(activePicker === 'to' ? null : 'to')
+                          }
+                        >
+                          <Icon name="calendar" size={20} color="#1890ff" />
+                          <Text style={styles.dateFieldText}>
+                            {format(tempToDate, 'MMM dd, yyyy')}
+                          </Text>
+                          <Icon
+                            name={
+                              activePicker === 'to'
+                                ? 'chevron-up'
+                                : 'chevron-down'
+                            }
+                            size={18}
+                            color="#999"
+                          />
+                        </TouchableOpacity>
+                        {activePicker === 'to' && (
+                          <View style={styles.pickerContainer}>
+                            <DateTimePicker
+                              value={tempToDate}
+                              mode="date"
+                              display={
+                                Platform.OS === 'ios' ? 'spinner' : 'default'
+                              }
+                              onChange={(_event, pickedDate) => {
+                                if (pickedDate) {
+                                  setTempToDate(pickedDate);
+                                }
+                                if (Platform.OS === 'android') {
+                                  setActivePicker(null);
+                                }
+                              }}
+                              minimumDate={tempFromDate}
+                              themeVariant="light"
+                            />
+                            {Platform.OS === 'ios' && (
+                              <TouchableOpacity
+                                style={styles.pickerDoneBtn}
+                                onPress={() => setActivePicker(null)}
+                              >
+                                <Text style={styles.pickerDoneText}>Done</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        )}
+                      </ScrollView>
+
+                      <View style={styles.dateFilterActions}>
+                        <TouchableOpacity
+                          style={styles.dateFilterClearButton}
+                          onPress={clearDateFilter}
+                        >
+                          <Text style={styles.dateFilterClearText}>
+                            Clear Filter
+                          </Text>
+                        </TouchableOpacity>
+                        <View style={styles.dateFilterActionRight}>
+                          <TouchableOpacity
+                            style={styles.dateFilterCancelButton}
+                            onPress={() => setShowDateFilterModal(false)}
+                          >
+                            <Text style={styles.dateFilterCancelText}>
+                              Cancel
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.dateFilterApplyButton}
+                            onPress={applyDateFilter}
+                          >
+                            <Text style={styles.dateFilterApplyText}>
+                              Apply
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  </TouchableWithoutFeedback>
+                </View>
+              </TouchableWithoutFeedback>
+            </Modal>
+
+            {/* Order Details Modal */}
+            <Modal
+              visible={!!selected}
+              animationType="slide"
+              transparent
+              onRequestClose={() => setSelected(null)}
+            >
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalCard}>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Order Details</Text>
+                    <TouchableOpacity onPress={() => setSelected(null)}>
+                      <Icon name="close" size={24} color="#666" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {selected && (
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Customer</Text>
+                        <Text style={styles.detailValue}>
+                          {selected.customerName}
+                        </Text>
+                      </View>
+                      {selected.customerPhone && (
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Phone</Text>
+                          <Text style={styles.detailValue}>
+                            {selected.customerPhone}
+                          </Text>
+                        </View>
+                      )}
+                      {selected.address && (
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Address</Text>
+                          <Text style={styles.detailValue}>
+                            {selected.address}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Method</Text>
+                        <Text style={styles.detailValue}>
+                          {selected.deliveryMethod === 'pickup'
+                            ? 'Pickup'
+                            : 'Delivery'}
+                        </Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Total</Text>
+                        <Text style={styles.detailValue}>
+                          ${(selected.totalAmount ?? 0).toFixed(2)}
+                        </Text>
+                      </View>
+
+                      <Text style={styles.itemsTitle}>Items</Text>
+                      {selected.items.map(item => (
+                        <View key={item.id} style={styles.itemRow}>
+                          <Text style={styles.itemName}>
+                            {item.quantity}× {item.productName}
+                          </Text>
+                          <Text style={styles.itemPrice}>
+                            ${(item.totalPrice ?? 0).toFixed(2)}
+                          </Text>
+                        </View>
+                      ))}
+
+                      {selected.customerNotes && (
+                        <View style={styles.notesBlock}>
+                          <Text style={styles.detailLabel}>Notes</Text>
+                          <Text style={styles.detailValue}>
+                            {selected.customerNotes}
+                          </Text>
+                        </View>
+                      )}
+
+                      <Text style={styles.itemsTitle}>Status</Text>
+                      <View style={styles.statusOptions}>
+                        {renderStatusOptions().map(status => (
+                          <TouchableOpacity
+                            key={status}
+                            style={[
+                              styles.statusOption,
+                              selected.status === status &&
+                                styles.statusOptionActive,
+                            ]}
+                            onPress={() => handleStatusChange(selected, status)}
+                            disabled={updatingId === selected.id}
+                          >
+                            <Text
+                              style={[
+                                styles.statusOptionText,
+                                selected.status === status &&
+                                  styles.statusOptionTextActive,
+                              ]}
+                            >
+                              {STATUS_LABELS[status]}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.paidButton,
+                          selected.isPaid && styles.paidButtonActive,
+                        ]}
+                        onPress={() => handleTogglePaid(selected)}
+                        disabled={updatingId === selected.id}
+                      >
+                        <Icon
+                          name={
+                            selected.isPaid
+                              ? 'checkmark-circle'
+                              : 'card-outline'
+                          }
+                          size={18}
+                          color={selected.isPaid ? '#fff' : '#1890ff'}
+                        />
+                        <Text
+                          style={[
+                            styles.paidButtonText,
+                            selected.isPaid && styles.paidButtonTextActive,
+                          ]}
+                        >
+                          {selected.isPaid ? 'Marked as Paid' : 'Mark as Paid'}
+                        </Text>
+                      </TouchableOpacity>
+                    </ScrollView>
+                  )}
+                </View>
+              </View>
+            </Modal>
+          </View>
+        </ScreenBackground>
+      )}
     </SafeAreaView>
   );
 });

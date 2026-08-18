@@ -19,9 +19,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useTickets } from '../../stores';
+import { useTickets, useModule, useAuth } from '../../stores';
 import { websocketService } from '../../services/websocket/WebSocketService';
 import ScreenBackground from '../../components/common/ScreenBackground';
+import ModuleNotEnabled from '../../components/common/ModuleNotEnabled';
+import PermissionDenied from '../../components/common/PermissionDenied';
 import { format } from 'date-fns';
 import { TicketModel } from '../../stores/TicketStore';
 import { Instance } from 'mobx-state-tree';
@@ -45,19 +47,25 @@ type TicketItem = Instance<typeof TicketModel>;
 
 const TicketListScreen = observer(() => {
   const ticketStore = useTickets();
+  const moduleStore = useModule();
+  const authStore = useAuth();
   const navigation = useNavigation<any>();
 
-  // Fetch on mount & tab focus
+  // Fetch on mount & tab focus (skips when Ticketing module is disabled)
   useFocusEffect(
     useCallback(() => {
-      ticketStore.fetchTickets();
-    }, [ticketStore]),
+      moduleStore.ensureLoaded().then(() => {
+        if (moduleStore.ticketing) {
+          ticketStore.fetchTickets();
+        }
+      });
+    }, [ticketStore, moduleStore]),
   );
 
   // Reload when app returns to foreground
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'active') {
+      if (nextAppState === 'active' && moduleStore.ticketing) {
         ticketStore.fetchTickets();
       }
     };
@@ -66,23 +74,25 @@ const TicketListScreen = observer(() => {
       handleAppStateChange,
     );
     return () => subscription.remove();
-  }, [ticketStore]);
+  }, [ticketStore, moduleStore]);
 
   // WebSocket: reload on reconnect
   useEffect(() => {
     const unsubscribe = websocketService.subscribe(message => {
-      if (message.type === 'ws_reconnected') {
+      if (message.type === 'ws_reconnected' && moduleStore.ticketing) {
         ticketStore.fetchTickets();
       }
     });
     return unsubscribe;
-  }, [ticketStore]);
+  }, [ticketStore, moduleStore]);
 
   // Reload when status filter changes
   useEffect(() => {
-    ticketStore.fetchTickets();
+    if (moduleStore.ticketing) {
+      ticketStore.fetchTickets();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticketStore.statusFilter]);
+  }, [ticketStore.statusFilter, moduleStore]);
 
   const handleStatusChange = (status: string) => {
     ticketStore.setStatusFilter(status);
@@ -231,69 +241,76 @@ const TicketListScreen = observer(() => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScreenBackground>
-        <View style={styles.container}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Tickets</Text>
-            <Text style={styles.headerSubtitle}>
-              {ticketStore.totalCount} ticket
-              {ticketStore.totalCount !== 1 ? 's' : ''}
-            </Text>
-          </View>
-
-          {/* Status Filter Tabs */}
-          <View style={styles.tabsContainer}>
-            {ticketStore.statusFilters.map(item => {
-              const isActive = ticketStore.statusFilter === item.key;
-              return (
-                <TouchableOpacity
-                  key={item.key}
-                  style={[styles.tab, isActive && styles.tabActive]}
-                  onPress={() => handleStatusChange(item.key)}
-                >
-                  <Text
-                    style={[styles.tabText, isActive && styles.tabTextActive]}
-                    numberOfLines={1}
-                  >
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Loading */}
-          {ticketStore.loading ? (
-            <View style={styles.centerContainer}>
-              <Text style={styles.loadingText}>Loading tickets...</Text>
+      {moduleStore.isLoaded && !moduleStore.ticketing ? (
+        <ModuleNotEnabled iconName="ticket-outline" moduleName="Tickets" />
+      ) : !authStore.canAccessResource('tickets') ||
+        ticketStore.permissionDenied ? (
+        <PermissionDenied iconName="ticket-outline" featureName="Tickets" />
+      ) : (
+        <ScreenBackground>
+          <View style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.headerTitle}>Tickets</Text>
+              <Text style={styles.headerSubtitle}>
+                {ticketStore.totalCount} ticket
+                {ticketStore.totalCount !== 1 ? 's' : ''}
+              </Text>
             </View>
-          ) : (
-            <FlatList
-              data={ticketStore.filteredTickets as unknown as TicketItem[]}
-              keyExtractor={item => item.id}
-              renderItem={renderTicketCard}
-              ListEmptyComponent={renderEmpty}
-              ListFooterComponent={renderFooter}
-              contentContainerStyle={
-                ticketStore.filteredTickets.length === 0
-                  ? styles.emptyListContent
-                  : styles.listContent
-              }
-              onEndReached={handleLoadMore}
-              onEndReachedThreshold={0.3}
-              refreshControl={
-                <RefreshControl
-                  refreshing={ticketStore.refreshing}
-                  onRefresh={onRefresh}
-                  colors={['#1890ff']}
-                  tintColor="#1890ff"
-                />
-              }
-            />
-          )}
-        </View>
-      </ScreenBackground>
+
+            {/* Status Filter Tabs */}
+            <View style={styles.tabsContainer}>
+              {ticketStore.statusFilters.map(item => {
+                const isActive = ticketStore.statusFilter === item.key;
+                return (
+                  <TouchableOpacity
+                    key={item.key}
+                    style={[styles.tab, isActive && styles.tabActive]}
+                    onPress={() => handleStatusChange(item.key)}
+                  >
+                    <Text
+                      style={[styles.tabText, isActive && styles.tabTextActive]}
+                      numberOfLines={1}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Loading */}
+            {ticketStore.loading ? (
+              <View style={styles.centerContainer}>
+                <Text style={styles.loadingText}>Loading tickets...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={ticketStore.filteredTickets as unknown as TicketItem[]}
+                keyExtractor={item => item.id}
+                renderItem={renderTicketCard}
+                ListEmptyComponent={renderEmpty}
+                ListFooterComponent={renderFooter}
+                contentContainerStyle={
+                  ticketStore.filteredTickets.length === 0
+                    ? styles.emptyListContent
+                    : styles.listContent
+                }
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.3}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={ticketStore.refreshing}
+                    onRefresh={onRefresh}
+                    colors={['#1890ff']}
+                    tintColor="#1890ff"
+                  />
+                }
+              />
+            )}
+          </View>
+        </ScreenBackground>
+      )}
     </SafeAreaView>
   );
 });
