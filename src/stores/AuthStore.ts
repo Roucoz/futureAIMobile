@@ -41,6 +41,7 @@ export const AuthStore = types
     memberId: types.maybeNull(types.string), // ProjectMember.id - used for sending messages
     isAuthenticated: types.optional(types.boolean, false),
     loading: types.optional(types.boolean, false),
+    initializing: types.optional(types.boolean, false), // only true during the startup token check
     error: types.maybeNull(types.string),
   })
   .actions(self => ({
@@ -94,14 +95,87 @@ export const AuthStore = types
     }),
 
     /**
+     * Request a one-time sign-in code (email OTP) for passwordless login
+     */
+    requestOtp: flow(function* (email: string) {
+      self.loading = true;
+      self.error = null;
+      try {
+        yield authService.requestOtp(email);
+        self.loading = false;
+        return { sent: true };
+      } catch (error: any) {
+        console.error('❌ AuthStore.requestOtp() - ERROR:', error);
+        self.error = error.message || 'Failed to send sign-in code';
+        self.loading = false;
+        throw error;
+      }
+    }),
+
+    /**
+     * Verify an emailed sign-in code and log in
+     */
+    loginWithOtp: flow(function* (email: string, code: string) {
+      self.loading = true;
+      self.error = null;
+      try {
+        const response = yield authService.verifyOtp(email, code);
+
+        // Check if 2FA is required
+        if (response.requiresTwoFactor) {
+          self.loading = false;
+          return { requiresTwoFactor: true, userId: response.userId };
+        }
+
+        // Store token and map user data (same shape as login)
+        if (response.token) {
+          yield secureStorage.setToken(response.token);
+          self.token = response.token;
+
+          self.user = cast({
+            id: response.user.id,
+            email: response.user.email,
+            firstName: response.user.firstName,
+            lastName: response.user.lastName,
+            projectId: response.project.id,
+            role: response.role,
+            twoFactorEnabled: response.user.twoFactorEnabled,
+            avatarUrl: response.user.avatarUrl || null,
+            createdAt: response.user.createdAt || null,
+          });
+
+          self.memberId = response.memberId;
+          self.permissions = cast(response.permissions || []);
+          self.isAuthenticated = true;
+        }
+
+        self.loading = false;
+        return { success: true };
+      } catch (error: any) {
+        console.error('❌ AuthStore.loginWithOtp() - ERROR:', error);
+        self.error = error.message || 'Invalid sign-in code';
+        self.loading = false;
+        throw error;
+      }
+    }),
+
+    /**
      * Complete 2FA login
      */
-    completeTwoFactor: flow(function* (userId: string, code: string) {
+    completeTwoFactor: flow(function* (
+      userId: string,
+      code: string,
+      isBackupCode = false,
+    ) {
       self.loading = true;
       self.error = null;
 
       try {
-        const response = yield authService.completeTwoFactor(userId, code);
+        const response = yield authService.completeTwoFactor(
+          userId,
+          code,
+          isBackupCode,
+        );
 
         if (response.token) {
           yield secureStorage.setToken(response.token);
@@ -136,16 +210,19 @@ export const AuthStore = types
 
     /**
      * Initialize auth state (check if token exists and fetch user)
+     * Uses `initializing` (not `loading`) so the RootNavigator splash only
+     * shows during startup — auth actions like OTP request must NOT unmount
+     * the auth screens.
      */
     initialize: flow(function* () {
-      self.loading = true;
+      self.initializing = true;
 
       try {
         const token = yield secureStorage.getToken();
 
         if (!token) {
           self.isAuthenticated = false;
-          self.loading = false;
+          self.initializing = false;
           return;
         }
 
@@ -178,7 +255,7 @@ export const AuthStore = types
       } catch (error: any) {
         console.error('❌ AuthStore.initialize() - ERROR:', error);
       } finally {
-        self.loading = false;
+        self.initializing = false;
       }
     }),
 

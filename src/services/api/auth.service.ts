@@ -66,14 +66,24 @@ class AuthService {
 
   /**
    * Complete 2FA login
+   * Verifies the TOTP/backup code server-side FIRST (via /v1/auth/2fa/verify),
+   * then completes the login to receive the JWT. Matches the web flow.
    */
   async completeTwoFactor(
     userId: string,
     code: string,
+    isBackupCode = false,
   ): Promise<LoginResponse> {
+    // 1. Verify the code (throws on invalid code)
+    await apiClient.post('/v1/auth/2fa/verify', {
+      userId,
+      token: code,
+      isBackupCode,
+    });
+
+    // 2. Complete login and receive JWT
     const response = await apiClient.post('/v1/auth/login/2fa-complete', {
       userId,
-      code,
       clientType: 'mobile',
     });
     return response.data;
@@ -155,6 +165,27 @@ class AuthService {
       token,
       platform,
     });
+  }
+
+  /**
+   * Request a one-time sign-in code (email OTP) for passwordless login
+   */
+  async requestOtp(email: string): Promise<{ sent: boolean }> {
+    const response = await apiClient.post('/v1/auth/otp/request', { email });
+    return response.data;
+  }
+
+  /**
+   * Verify an emailed sign-in code and log in.
+   * Response shape matches /v1/auth/login (may require 2FA).
+   */
+  async verifyOtp(email: string, code: string): Promise<LoginResponse> {
+    const response = await apiClient.post('/v1/auth/otp/verify', {
+      email,
+      code,
+      clientType: 'mobile',
+    });
+    return response.data;
   }
 }
 

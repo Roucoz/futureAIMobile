@@ -9,6 +9,7 @@ import { AuthStackParamList } from './types';
 
 // Import screens
 import LoginScreen from '../screens/auth/LoginScreen';
+import TwoFactorScreen from '../screens/auth/TwoFactorScreen';
 
 const Stack = createStackNavigator<AuthStackParamList>();
 
@@ -20,7 +21,8 @@ const AuthNavigator = () => {
       }}
     >
       <Stack.Screen name="Login" component={LoginScreen} />
-      {/* TODO: Add TwoFactorScreen and GoogleCompleteScreen */}
+      <Stack.Screen name="TwoFactor" component={TwoFactorScreen} />
+      {/* TODO: Add GoogleCompleteScreen */}
     </Stack.Navigator>
   );
 };

@@ -81,8 +81,10 @@ const RootNavigator = observer(() => {
     };
   }, [authStore.isAuthenticated, authStore.token]);
 
-  // Show loading while checking auth status
-  if (authStore.loading) {
+  // Show a splash only during the initial auth check (token restore + getMe).
+  // NOT on general `loading` — otherwise every auth action (e.g. OTP request)
+  // would unmount/remount the navigator and reset the LoginScreen state.
+  if (authStore.initializing) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#1890ff" />
