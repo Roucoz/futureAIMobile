@@ -20,6 +20,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { ContactsStackParamList } from '../../navigation/types';
 import { Contact } from '../../services/api/contact.service';
 import contactService from '../../services/api/contact.service';
+import { useModule } from '../../stores';
 
 interface RouteParams {
   contact: Contact;
@@ -34,6 +35,7 @@ const ContactDetailScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
   const { contact } = route.params as RouteParams;
+  const moduleStore = useModule();
   const [isLoading, setIsLoading] = useState(false);
 
   const displayName = contact.name || contact.phoneNumber;
@@ -122,12 +124,23 @@ const ContactDetailScreen = () => {
   };
 
   // Create ticket
-  const handleCreateTicket = () => {
-    // TODO: Navigate to create ticket screen
-    Alert.alert(
-      'Coming Soon',
-      'Create ticket functionality will be available soon',
-    );
+  const handleCreateTicket = async () => {
+    try {
+      await moduleStore.ensureLoaded();
+      if (!moduleStore.ticketing) {
+        Alert.alert(
+          'Module Not Enabled',
+          'The Tickets module is not enabled for your account.\n\nYou can enable it from the admin panel on the website (Configuration → Modules).',
+        );
+        return;
+      }
+
+      // Navigate to create ticket screen for this customer
+      navigation.navigate('CreateTicket', { customerId: contact.id });
+    } catch (error: any) {
+      console.error('Failed to create ticket:', error);
+      Alert.alert('Error', 'Failed to create ticket');
+    }
   };
 
   return (
@@ -175,19 +188,22 @@ const ContactDetailScreen = () => {
             <Text style={styles.actionButtonText}>Start Chat</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.secondaryButton]}
-            onPress={handleCreateTicket}
-            disabled={isLoading}
-          >
-            <Icon
-              name="ticket"
-              size={20}
-              color="#fff"
-              style={styles.actionButtonIcon}
-            />
-            <Text style={styles.actionButtonText}>Create Ticket</Text>
-          </TouchableOpacity>
+          {/* Only show Create Ticket when the ticketing module is enabled */}
+          {(!moduleStore.isLoaded || moduleStore.ticketing) && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.secondaryButton]}
+              onPress={handleCreateTicket}
+              disabled={isLoading}
+            >
+              <Icon
+                name="ticket"
+                size={20}
+                color="#fff"
+                style={styles.actionButtonIcon}
+              />
+              <Text style={styles.actionButtonText}>Create Ticket</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* History Buttons */}

@@ -16,10 +16,11 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { ticketService } from '../../services/api/ticket.service';
-import { useChat } from '../../stores';
+import { useChat, useModule } from '../../stores';
+import ModuleNotEnabled from '../../components/common/ModuleNotEnabled';
 
 type CreateTicketRouteProp = RouteProp<
-  { CreateTicket: { conversationId: string } },
+  { CreateTicket: { customerId?: string; conversationId?: string } },
   'CreateTicket'
 >;
 
@@ -27,7 +28,8 @@ const CreateTicketScreen = () => {
   const route = useRoute<CreateTicketRouteProp>();
   const navigation = useNavigation();
   const chatStore = useChat();
-  const { conversationId } = route.params;
+  const moduleStore = useModule();
+  const { conversationId, customerId } = route.params;
 
   const [summary, setSummary] = useState('');
   const [description, setDescription] = useState('');
@@ -36,8 +38,15 @@ const CreateTicketScreen = () => {
   >('MEDIUM');
   const [loading, setLoading] = useState(false);
 
+  // Ensure the ticketing module status is loaded before gating the screen
   useEffect(() => {
-    // Pre-fill with conversation context
+    moduleStore.ensureLoaded();
+  }, [moduleStore]);
+
+  useEffect(() => {
+    // Pre-fill with conversation context (conversation-based tickets only)
+    if (!conversationId) return;
+
     const conversation = chatStore.conversations.find(
       c => c.id === conversationId,
     );
@@ -55,9 +64,18 @@ const CreateTicketScreen = () => {
         .join('\n');
       setDescription(`Conversation:\n${lastMessages}`);
     }
-  }, [conversationId]);
+  }, [conversationId, chatStore.conversations]);
 
   const handleCreate = async () => {
+    await moduleStore.ensureLoaded();
+    if (!moduleStore.ticketing) {
+      Alert.alert(
+        'Module Not Enabled',
+        'The Tickets module is not enabled for your account.\n\nYou can enable it from the admin panel on the website (Configuration → Modules).',
+      );
+      return;
+    }
+
     if (!summary.trim()) {
       Alert.alert('Error', 'Please enter a summary');
       return;
@@ -70,12 +88,22 @@ const CreateTicketScreen = () => {
 
     setLoading(true);
     try {
-      await ticketService.createTicketFromConversation(
-        conversationId,
-        summary.trim(),
-        description.trim(),
-        priority,
-      );
+      if (customerId) {
+        // Ticket created directly for the customer (no conversation required)
+        await ticketService.createTicket({
+          summary: summary.trim(),
+          description: description.trim(),
+          priority,
+          customerId,
+        });
+      } else if (conversationId) {
+        await ticketService.createTicketFromConversation(
+          conversationId,
+          summary.trim(),
+          description.trim(),
+          priority,
+        );
+      }
 
       Alert.alert('Success', 'Ticket created successfully!', [
         {
@@ -97,9 +125,14 @@ const CreateTicketScreen = () => {
     { value: 'URGENT', label: 'Urgent', color: '#ff4d4f' },
   ] as const;
 
+  // Ticketing module disabled → show friendly placeholder instead of the form
+  if (moduleStore.isLoaded && !moduleStore.ticketing) {
+    return <ModuleNotEnabled iconName="ticket-outline" moduleName="Tickets" />;
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.sectionTitle}>Create Ticket from Conversation</Text>
+      <Text style={styles.sectionTitle}>Create New Ticket</Text>
 
       {/* Summary */}
       <View style={styles.field}>

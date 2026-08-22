@@ -22,6 +22,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ContactsStackParamList } from '../../navigation/types';
 import ScreenBackground from '../../components/common/ScreenBackground';
+import { useModule } from '../../stores';
 import contactService, {
   Contact,
   GetContactsParams,
@@ -34,6 +35,7 @@ type NavigationProp = StackNavigationProp<
 
 const ContactsScreen = () => {
   const navigation = useNavigation<NavigationProp>();
+  const moduleStore = useModule();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -155,27 +157,19 @@ const ContactsScreen = () => {
   // Create ticket for contact
   const handleCreateTicket = async (contact: Contact) => {
     try {
-      // First, check if there's an existing open conversation
-      const conversations = await contactService.getContactConversations(
-        contact.id,
-        contact.phoneNumber,
-      );
-
-      let conversationId;
-      if (conversations.length > 0) {
-        // Use the most recent open conversation
-        const openConv = conversations.find((c: any) => c.status === 'OPEN');
-        conversationId = openConv ? openConv.id : conversations[0].id;
-      } else {
-        // Create a new conversation
-        const result = await contactService.startConversation(
-          contact.phoneNumber,
+      await moduleStore.ensureLoaded();
+      if (!moduleStore.ticketing) {
+        Alert.alert(
+          'Module Not Enabled',
+          'The Tickets module is not enabled for your account.\n\nYou can enable it from the admin panel on the website (Configuration → Modules).',
         );
-        conversationId = result.conversationId;
+        return;
       }
 
-      // Navigate to create ticket screen within Contacts stack
-      navigation.navigate('CreateTicket', { conversationId });
+      // Create the ticket directly for this customer — no conversation needed.
+      // (The previous flow tried to find/create a conversation first, which
+      // called a non-existent endpoint and failed with a 404 from the API.)
+      navigation.navigate('CreateTicket', { customerId: contact.id });
     } catch (error: any) {
       console.error('Failed to create ticket:', error);
       Alert.alert('Error', 'Failed to create ticket');
@@ -274,21 +268,24 @@ const ContactsScreen = () => {
             />
             <Text style={styles.actionButtonText}>Chat</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={e => {
-              e.stopPropagation();
-              handleCreateTicket(item);
-            }}
-          >
-            <Icon
-              name="ticket"
-              size={16}
-              color="#1890ff"
-              style={{ marginRight: 4 }}
-            />
-            <Text style={styles.actionButtonText}>Create Ticket</Text>
-          </TouchableOpacity>
+          {/* Only show Create Ticket when the ticketing module is enabled */}
+          {(!moduleStore.isLoaded || moduleStore.ticketing) && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={e => {
+                e.stopPropagation();
+                handleCreateTicket(item);
+              }}
+            >
+              <Icon
+                name="ticket"
+                size={16}
+                color="#1890ff"
+                style={{ marginRight: 4 }}
+              />
+              <Text style={styles.actionButtonText}>Create Ticket</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </TouchableOpacity>
     );

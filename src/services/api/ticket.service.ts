@@ -47,14 +47,6 @@ export interface GetTicketsResult {
 export interface TicketStatus {
   id: string;
   name: string;
-  color: string;
-  isDefault: boolean;
-  order: number;
-}
-
-export interface TicketStatus {
-  id: string;
-  name: string;
   color: string | null;
   sortOrder: number;
   isDefault: boolean;
@@ -106,6 +98,7 @@ export interface CreateTicketData {
   status?: string;
   assignedToMemberId?: string;
   conversationId?: string;
+  customerId?: string;
 }
 
 class TicketService {

@@ -32,7 +32,7 @@ export type ContactsStackParamList = {
     conversations: any[];
   };
   ContactTickets: { contactId: string; contactName: string; tickets: any[] };
-  CreateTicket: { conversationId: string };
+  CreateTicket: { customerId?: string; conversationId?: string };
 };
 
 // Ticket Stack Params

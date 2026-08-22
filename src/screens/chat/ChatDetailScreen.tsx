@@ -27,7 +27,7 @@ import { observer } from 'mobx-react-lite';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { format } from 'date-fns';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useChat, useAuth } from '../../stores';
+import { useChat, useAuth, useModule } from '../../stores';
 import { resolveImageUrl } from '../../utils/imageUrl';
 import { ChatStackParamList } from '../../navigation/types';
 import VoicePlayer from '../../components/audio/VoicePlayer';
@@ -66,6 +66,7 @@ const ChatDetailScreen = observer(() => {
   const navigation = useNavigation();
   const chatStore = useChat();
   const authStore = useAuth();
+  const moduleStore = useModule();
   const { conversationId } = route.params;
 
   const [messageText, setMessageText] = useState('');
@@ -187,9 +188,12 @@ const ChatDetailScreen = observer(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, isAtBottom, scrollToBottom]);
 
-  const showActionSheet = () => {
+  const showActionSheet = async () => {
     const conversation = chatStore.selectedConversation;
     if (!conversation) return;
+
+    // Ensure the ticketing module status is loaded before gating this action
+    await moduleStore.ensureLoaded();
 
     // Check permissions
     const hasClosePermission = authStore.permissions.some(
@@ -199,8 +203,11 @@ const ChatDetailScreen = observer(() => {
       p => p.resource === 'tickets' && p.actions.includes('create'),
     );
 
+    // Only offer Create Ticket when the ticketing module is enabled
+    const ticketEnabled = moduleStore.isLoaded ? moduleStore.ticketing : false;
+
     const options: string[] = [];
-    if (hasTicketPermission) options.push('Create Ticket');
+    if (ticketEnabled && hasTicketPermission) options.push('Create Ticket');
     if (hasClosePermission) options.push('Close Chat');
     options.push('Cancel');
 
@@ -224,7 +231,7 @@ const ChatDetailScreen = observer(() => {
     } else {
       // Android: Show alert with options
       Alert.alert('Actions', 'Choose an action', [
-        ...(hasTicketPermission
+        ...(ticketEnabled && hasTicketPermission
           ? [{ text: 'Create Ticket', onPress: handleCreateTicket }]
           : []),
         ...(hasClosePermission
@@ -241,7 +248,16 @@ const ChatDetailScreen = observer(() => {
     }
   };
 
-  const handleCreateTicket = () => {
+  const handleCreateTicket = async () => {
+    await moduleStore.ensureLoaded();
+    if (!moduleStore.ticketing) {
+      Alert.alert(
+        'Module Not Enabled',
+        'The Tickets module is not enabled for your account.\n\nYou can enable it from the admin panel on the website (Configuration → Modules).',
+      );
+      return;
+    }
+
     // Navigate to ticket creation screen
     // @ts-ignore - Navigation types need to be extended for cross-stack navigation
     navigation.navigate('CreateTicket', { conversationId });

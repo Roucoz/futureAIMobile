@@ -10,7 +10,7 @@ export interface Contact {
   phoneNumber: string;
   name: string | null;
   email: string | null;
-  customerType: 'NEW' | 'RETURNING' | 'VIP' | 'ARCHIVED';
+  customerType: 'NEW' | 'REGULAR' | 'VIP' | 'BLOCKED' | 'INACTIVE';
   isVip: boolean;
   isBlocked: boolean;
   phoneVerified: boolean;
@@ -49,7 +49,7 @@ export interface GetContactsParams {
   page?: number;
   pageSize?: number;
   search?: string;
-  customerType?: 'NEW' | 'RETURNING' | 'VIP' | 'ARCHIVED';
+  customerType?: 'NEW' | 'REGULAR' | 'VIP' | 'BLOCKED' | 'INACTIVE';
   isVip?: boolean;
   sortBy?: 'lastContactedAt' | 'totalConversations' | 'name';
   sortOrder?: 'asc' | 'desc';
@@ -155,9 +155,10 @@ class ContactService {
       '🔄 contactService.getContactConversations() - phoneNumber:',
       phoneNumber,
     );
-    // Use the chats endpoint with visitorId filter
+    // Use the chats endpoint with the `search` filter (the backend's listChats
+    // reads `search`, not `visitorId`) to find this contact's conversations.
     const response = await apiClient.get(
-      `/v1/admin/chats?visitorId=${encodeURIComponent(phoneNumber)}`,
+      `/v1/admin/chats?search=${encodeURIComponent(phoneNumber)}`,
     );
     console.log(
       '✅ contactService.getContactConversations() - Count:',
@@ -176,13 +177,13 @@ class ContactService {
     );
     try {
       const response = await apiClient.get(
-        `/v1/admin/tickets?contactId=${contactId}`,
+        `/v1/admin/tickets?customerId=${contactId}`,
       );
       console.log(
         '✅ contactService.getContactTickets() - Count:',
-        response.data.tickets?.length || 0,
+        response.data.data?.length || 0,
       );
-      return response.data.tickets || [];
+      return response.data.data || [];
     } catch (error: any) {
       // Return empty array if tickets module is not enabled or endpoint doesn't exist
       if (error.response?.status === 404 || error.response?.status === 403) {
@@ -194,25 +195,43 @@ class ContactService {
   }
 
   /**
-   * Initiate a new conversation with a contact
+   * Find an existing conversation for a contact (by phone number).
+   * Returns the most recent OPEN conversation if one exists.
+   *
+   * NOTE: The old implementation POSTed to `/v1/admin/conversations/initiate`,
+   * which does NOT exist on the backend (the real endpoint is
+   * `/v1/admin/chats/initiate` and requires `phoneNumber`, `agentId` plus a
+   * message/template) — so it always failed with 404. We now look up the
+   * conversation via the chats listing instead, and give a clear message when
+   * there is nothing to open yet.
    */
   async startConversation(
     phoneNumber: string,
-    channel: 'WHATSAPP' | 'WIDGET' = 'WIDGET',
   ): Promise<{ conversationId: string }> {
     console.log(
       '🔄 contactService.startConversation() - phoneNumber:',
       phoneNumber,
     );
-    const response = await apiClient.post('/v1/admin/conversations/initiate', {
-      visitorId: phoneNumber,
-      channel,
-    });
-    console.log(
-      '✅ contactService.startConversation() - conversationId:',
-      response.data.conversationId,
+    const response = await apiClient.get(
+      `/v1/admin/chats?search=${encodeURIComponent(phoneNumber)}`,
     );
-    return response.data;
+    const conversations = response.data.conversations || [];
+    const openConversation = conversations.find(
+      (c: any) => c.status === 'OPEN',
+    );
+    if (openConversation) {
+      console.log(
+        '✅ contactService.startConversation() - conversationId:',
+        openConversation.id,
+      );
+      return { conversationId: openConversation.id };
+    }
+
+    const error: any = new Error(
+      'No existing conversation for this customer. Ask them to start a chat from the website widget or WhatsApp first.',
+    );
+    error.status = 404;
+    throw error;
   }
 }
 
