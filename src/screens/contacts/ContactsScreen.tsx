@@ -22,6 +22,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ContactsStackParamList } from '../../navigation/types';
 import ScreenBackground from '../../components/common/ScreenBackground';
+import BillingBanner from '../../components/common/BillingBanner';
 import { useModule } from '../../stores';
 import contactService, {
   Contact,
@@ -508,6 +509,7 @@ const ContactsScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <BillingBanner />
       <ScreenBackground>
         <View style={styles.container}>
           {/* Header */}

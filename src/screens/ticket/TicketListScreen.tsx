@@ -22,6 +22,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useTickets, useModule, useAuth } from '../../stores';
 import { websocketService } from '../../services/websocket/WebSocketService';
 import ScreenBackground from '../../components/common/ScreenBackground';
+import BillingBanner from '../../components/common/BillingBanner';
 import ModuleNotEnabled from '../../components/common/ModuleNotEnabled';
 import PermissionDenied from '../../components/common/PermissionDenied';
 import { format } from 'date-fns';
@@ -241,6 +242,7 @@ const TicketListScreen = observer(() => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <BillingBanner />
       {moduleStore.isLoaded && !moduleStore.ticketing ? (
         <ModuleNotEnabled iconName="ticket-outline" moduleName="Tickets" />
       ) : !authStore.canAccessResource('tickets') ||

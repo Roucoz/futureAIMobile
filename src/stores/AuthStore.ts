@@ -4,7 +4,7 @@
  */
 
 import { types, flow, Instance, cast } from 'mobx-state-tree';
-import { authService } from '../services/api/auth.service';
+import { authService, AccountStatus } from '../services/api/auth.service';
 import { secureStorage } from '../services/storage/SecureStorageService';
 
 // Permission model
@@ -39,11 +39,25 @@ export const AuthStore = types
     permissions: types.array(PermissionModel),
     token: types.maybeNull(types.string),
     memberId: types.maybeNull(types.string), // ProjectMember.id - used for sending messages
+    accountStatus: types.maybeNull(types.frozen<AccountStatus>()),
     isAuthenticated: types.optional(types.boolean, false),
     loading: types.optional(types.boolean, false),
     initializing: types.optional(types.boolean, false), // only true during the startup token check
     error: types.maybeNull(types.string),
   })
+  // Declared in its own actions block so other actions can call it
+  // (self-referencing actions within a single MST actions object don't type-check).
+  .actions(self => ({
+    refreshAccountStatus: flow(function* () {
+      if (!self.token) return;
+      try {
+        const response = yield authService.getMe();
+        self.accountStatus = response.accountStatus || null;
+      } catch (error: any) {
+        console.error('❌ AuthStore.refreshAccountStatus() - ERROR:', error);
+      }
+    }),
+  }))
   .actions(self => ({
     /**
      * Login with email and password
@@ -83,6 +97,10 @@ export const AuthStore = types
           self.permissions = cast(response.permissions || []);
           self.isAuthenticated = true;
         }
+        // Load account status (trial expiry / renewal / wallet balance)
+        yield self.refreshAccountStatus();
+        // Load account status (trial expiry / renewal / wallet balance)
+        yield self.refreshAccountStatus();
 
         self.loading = false;
         return { success: true };
@@ -148,6 +166,9 @@ export const AuthStore = types
           self.permissions = cast(response.permissions || []);
           self.isAuthenticated = true;
         }
+
+        // Load account status (trial expiry / renewal / wallet balance)
+        yield self.refreshAccountStatus();
 
         self.loading = false;
         return { success: true };
@@ -246,6 +267,7 @@ export const AuthStore = types
 
           self.memberId = response.memberId;
           self.permissions = cast(response.permissions || []);
+          self.accountStatus = response.accountStatus || null;
           self.isAuthenticated = true;
         } catch {
           yield secureStorage.removeToken();
@@ -276,6 +298,7 @@ export const AuthStore = types
         self.token = null;
         self.memberId = null;
         self.permissions.clear();
+        self.accountStatus = null;
         self.isAuthenticated = false;
         self.error = null;
       } catch (error: any) {

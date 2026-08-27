@@ -33,6 +33,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { format } from 'date-fns';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import ScreenBackground from '../../components/common/ScreenBackground';
+import BillingBanner from '../../components/common/BillingBanner';
 import ModuleNotEnabled from '../../components/common/ModuleNotEnabled';
 import PermissionDenied from '../../components/common/PermissionDenied';
 import { useModule, useAuth } from '../../stores';
@@ -369,6 +370,7 @@ const OrdersScreen = observer(() => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <BillingBanner />
       {moduleStore.isLoaded && !moduleStore.orders ? (
         <ModuleNotEnabled iconName="cart" moduleName="Orders" />
       ) : !authStore.canAccessResource('orders') || permissionDenied ? (

@@ -26,6 +26,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth, useChat, useModule } from '../../stores';
 import { resolveImageUrl } from '../../utils/imageUrl';
 import ScreenBackground from '../../components/common/ScreenBackground';
+import BillingBanner from '../../components/common/BillingBanner';
 import {
   appointmentsService,
   Appointment,
@@ -271,6 +272,7 @@ const DashboardScreen = observer(() => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <BillingBanner />
       <ScreenBackground>
         <ScrollView
           style={styles.container}

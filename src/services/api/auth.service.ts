@@ -41,6 +41,31 @@ export interface Permission {
   actions: string[];
 }
 
+/**
+ * Account status returned by /v1/auth/me
+ * Used to drive trial-expiry / renewal warnings and wallet display on mobile.
+ */
+export interface AccountStatus {
+  isBlocked: boolean;
+  reason: 'TRIAL_EXPIRED' | 'SUSPENDED' | 'ACTIVE';
+  subscriptionStatus: string;
+  balance: number;
+  regularBalance: number;
+  usageAllocation: number;
+  currency: string;
+  trialEndDate: string | null;
+  subscriptionStartDate: string | null;
+  nextBillingDate: string | null;
+  autoRenew: boolean;
+  warningMessage: string | null;
+  hoursUntilExpiry: number | null;
+  renewalWarningMessage: string | null;
+  daysUntilRenewal: number | null;
+  amountNeeded: number;
+  canAccessBilling: boolean;
+  canReadConversations: boolean;
+}
+
 class AuthService {
   /**
    * Login with email and password
@@ -98,6 +123,7 @@ class AuthService {
     memberId: string;
     role: string;
     permissions: Permission[];
+    accountStatus?: AccountStatus | null;
   }> {
     try {
       const response = await apiClient.get('/v1/auth/me');
@@ -113,6 +139,7 @@ class AuthService {
         memberId: response.data.memberId,
         role: response.data.role,
         permissions: response.data.permissions || [],
+        accountStatus: response.data.accountStatus || null,
       };
     } catch (error: any) {
       console.error('❌ authService.getMe() - Error:', {

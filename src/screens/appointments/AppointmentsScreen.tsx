@@ -29,6 +29,7 @@ import AppointmentFormModal from './AppointmentFormModal';
 import AppointmentDetailsModal from './AppointmentDetailsModal';
 import WeekViewScreen from './WeekViewScreen';
 import ScreenBackground from '../../components/common/ScreenBackground';
+import BillingBanner from '../../components/common/BillingBanner';
 import ModuleNotEnabled from '../../components/common/ModuleNotEnabled';
 import PermissionDenied from '../../components/common/PermissionDenied';
 import { websocketService } from '../../services/websocket/WebSocketService';
@@ -379,6 +380,7 @@ const AppointmentsScreen = observer(() => {
 
   return (
     <ScreenBackground>
+      <BillingBanner style={{ paddingTop: 60 }} />
       {moduleStore.isLoaded && !moduleStore.appointments ? (
         <ModuleNotEnabled iconName="calendar" moduleName="Appointments" />
       ) : !authStore.canAccessResource('appointments') ||

@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useChat } from '../../stores';
 import ConversationCard from '../../components/chat/ConversationCard';
 import ScreenBackground from '../../components/common/ScreenBackground';
+import BillingBanner from '../../components/common/BillingBanner';
 
 const ConversationListScreen = observer(() => {
   const navigation = useNavigation();
@@ -192,6 +193,7 @@ const ConversationListScreen = observer(() => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <BillingBanner />
       <ScreenBackground>
         <View style={styles.container}>
           {/* Header */}
