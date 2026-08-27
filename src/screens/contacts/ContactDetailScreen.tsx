@@ -20,6 +20,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { ContactsStackParamList } from '../../navigation/types';
 import { Contact } from '../../services/api/contact.service';
 import contactService from '../../services/api/contact.service';
+import { ordersService } from '../../services/api/orders.service';
+import { appointmentsService } from '../../services/api/appointments.service';
 import { useModule } from '../../stores';
 
 interface RouteParams {
@@ -46,6 +48,12 @@ const ContactDetailScreen = () => {
     contact.firstContactedAt,
   ).toLocaleDateString();
 
+  // Only offer Chat when reachable via WhatsApp/Telegram or the phone is verified
+  const canChat =
+    contact.phoneVerified ||
+    contact.channels.includes('WHATSAPP') ||
+    contact.channels.includes('TELEGRAM');
+
   // Start new conversation
   const handleStartChat = async () => {
     try {
@@ -53,11 +61,19 @@ const ContactDetailScreen = () => {
       const { conversationId } = await contactService.startConversation(
         contact.phoneNumber,
       );
-      // Navigate to ChatStack in parent navigator
-      (navigation as any).navigate('ChatStack', {
-        screen: 'ChatDetail',
-        params: { conversationId },
-      });
+      if (conversationId) {
+        // Existing open conversation → open it directly
+        (navigation as any).navigate('ChatStack', {
+          screen: 'ChatDetail',
+          params: { conversationId },
+        });
+      } else {
+        // No existing conversation → let the agent start one (message/template)
+        navigation.navigate('InitiateChat', {
+          phoneNumber: contact.phoneNumber,
+          contactName: displayName,
+        });
+      }
     } catch (error: any) {
       console.error('Failed to start conversation:', error);
       Alert.alert(
@@ -123,6 +139,74 @@ const ContactDetailScreen = () => {
     }
   };
 
+  // View orders
+  const handleViewOrders = async () => {
+    try {
+      await moduleStore.ensureLoaded();
+      if (!moduleStore.orders) {
+        Alert.alert(
+          'Module Not Enabled',
+          'The Orders module is not enabled for your account.',
+        );
+        return;
+      }
+
+      setIsLoading(true);
+      const orders = await ordersService.getOrdersByContact(
+        contact.id,
+        contact.phoneNumber,
+        contact.email || undefined,
+      );
+
+      if (orders.length === 0) {
+        Alert.alert('No Orders', 'This contact has no orders.');
+      } else {
+        navigation.navigate('ContactOrders', {
+          contactName: displayName,
+          orders,
+        });
+      }
+    } catch (error: any) {
+      console.error('Failed to load orders:', error);
+      Alert.alert('Error', 'Failed to load orders');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // View appointments
+  const handleViewAppointments = async () => {
+    try {
+      await moduleStore.ensureLoaded();
+      if (!moduleStore.appointments) {
+        Alert.alert(
+          'Module Not Enabled',
+          'The Appointments module is not enabled for your account.',
+        );
+        return;
+      }
+
+      setIsLoading(true);
+      const appointments = await appointmentsService.getAppointmentsByContact(
+        contact.id,
+      );
+
+      if (appointments.length === 0) {
+        Alert.alert('No Appointments', 'This contact has no appointments.');
+      } else {
+        navigation.navigate('ContactAppointments', {
+          contactName: displayName,
+          appointments,
+        });
+      }
+    } catch (error: any) {
+      console.error('Failed to load appointments:', error);
+      Alert.alert('Error', 'Failed to load appointments');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Create ticket
   const handleCreateTicket = async () => {
     try {
@@ -141,6 +225,15 @@ const ContactDetailScreen = () => {
       console.error('Failed to create ticket:', error);
       Alert.alert('Error', 'Failed to create ticket');
     }
+  };
+
+  // Send SMS to contact
+  const handleSendSms = () => {
+    navigation.navigate('SendSms', {
+      contactId: contact.id,
+      phoneNumber: contact.phoneNumber,
+      contactName: displayName,
+    });
   };
 
   return (
@@ -174,19 +267,39 @@ const ContactDetailScreen = () => {
 
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.primaryButton]}
-            onPress={handleStartChat}
-            disabled={isLoading}
-          >
-            <Icon
-              name="chatbubbles"
-              size={20}
-              color="#fff"
-              style={styles.actionButtonIcon}
-            />
-            <Text style={styles.actionButtonText}>Start Chat</Text>
-          </TouchableOpacity>
+          {/* Only show Start Chat when reachable via WhatsApp/Telegram or phone is verified */}
+          {canChat && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.primaryButton]}
+              onPress={handleStartChat}
+              disabled={isLoading}
+            >
+              <Icon
+                name="chatbubbles"
+                size={20}
+                color="#fff"
+                style={styles.actionButtonIcon}
+              />
+              <Text style={styles.actionButtonText}>Start Chat</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Only show Send SMS when the phone number is verified */}
+          {contact.phoneVerified && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.secondaryButton]}
+              onPress={handleSendSms}
+              disabled={isLoading}
+            >
+              <Icon
+                name="chatbox-ellipses"
+                size={20}
+                color="#fff"
+                style={styles.actionButtonIcon}
+              />
+              <Text style={styles.actionButtonText}>Send SMS</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Only show Create Ticket when the ticketing module is enabled */}
           {(!moduleStore.isLoaded || moduleStore.ticketing) && (
@@ -246,12 +359,67 @@ const ContactDetailScreen = () => {
               <View style={styles.historyButtonInfo}>
                 <Text style={styles.historyButtonTitle}>Ticket History</Text>
                 <Text style={styles.historyButtonSubtitle}>
-                  View all tickets
+                  {contact.totalTickets} ticket
+                  {contact.totalTickets !== 1 ? 's' : ''}
                 </Text>
               </View>
             </View>
             <Text style={styles.historyButtonArrow}>›</Text>
           </TouchableOpacity>
+
+          {/* Only show Orders history when the orders module is enabled */}
+          {(!moduleStore.isLoaded || moduleStore.orders) && (
+            <TouchableOpacity
+              style={styles.historyButton}
+              onPress={handleViewOrders}
+              disabled={isLoading}
+            >
+              <View style={styles.historyButtonHeader}>
+                <Icon
+                  name="cube"
+                  size={24}
+                  color="#1890ff"
+                  style={styles.historyButtonIcon}
+                />
+                <View style={styles.historyButtonInfo}>
+                  <Text style={styles.historyButtonTitle}>Order History</Text>
+                  <Text style={styles.historyButtonSubtitle}>
+                    {contact.totalOrders} order
+                    {contact.totalOrders !== 1 ? 's' : ''}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.historyButtonArrow}>›</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Only show Appointments history when the appointments module is enabled */}
+          {(!moduleStore.isLoaded || moduleStore.appointments) && (
+            <TouchableOpacity
+              style={styles.historyButton}
+              onPress={handleViewAppointments}
+              disabled={isLoading}
+            >
+              <View style={styles.historyButtonHeader}>
+                <Icon
+                  name="calendar"
+                  size={24}
+                  color="#1890ff"
+                  style={styles.historyButtonIcon}
+                />
+                <View style={styles.historyButtonInfo}>
+                  <Text style={styles.historyButtonTitle}>
+                    Appointment History
+                  </Text>
+                  <Text style={styles.historyButtonSubtitle}>
+                    {contact.totalAppointments} appointment
+                    {contact.totalAppointments !== 1 ? 's' : ''}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.historyButtonArrow}>›</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Details Card */}

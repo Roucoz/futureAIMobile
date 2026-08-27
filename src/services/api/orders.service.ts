@@ -70,6 +70,25 @@ class OrdersService {
     }
 
     /**
+     * Get a contact's orders. Matches by the linked contactId AND the contact's
+     * phone/email (same logic as the customer count on the admin contacts page).
+     */
+    async getOrdersByContact(
+        contactId: string,
+        phone?: string,
+        email?: string,
+    ): Promise<Order[]> {
+        const params = new URLSearchParams({ limit: '50' });
+        if (contactId) params.set('contactId', contactId);
+        if (phone) params.set('customerPhone', phone);
+        if (email) params.set('customerEmail', email);
+        const response = await apiClient.get(
+            `/v1/admin/orders/query?${params.toString()}`,
+        );
+        return response.data.data?.orders || [];
+    }
+
+    /**
      * Update an order's status or payment flag
      */
     async updateOrder(id: string, dto: UpdateOrderDto): Promise<Order> {

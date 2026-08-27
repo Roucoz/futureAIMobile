@@ -21,6 +21,7 @@ interface Conversation {
   id: string;
   status: string;
   channel: string;
+  summary?: string;
   lastMessagePreview: string;
   updatedAt: string;
 }
@@ -39,14 +40,13 @@ type NavigationProp = StackNavigationProp<
 const ContactConversationsScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
-  const { contactId, contactName, conversations } = route.params as RouteParams;
+  const { contactName, conversations } = route.params as RouteParams;
 
   const handleConversationPress = (conversationId: string) => {
-    // Navigate to ChatStack in parent navigator
-    (navigation as any).navigate('ChatStack', {
-      screen: 'ChatDetail',
-      params: { conversationId },
-    });
+    // Push ChatDetail onto the Contacts stack so "Back" returns to this history
+    // list, then back again to the contact details (instead of jumping to the
+    // main Chats tab).
+    navigation.navigate('ConversationChat', { conversationId });
   };
 
   const renderConversation = ({ item }: { item: Conversation }) => {
@@ -76,8 +76,8 @@ const ContactConversationsScreen = () => {
             <Text style={styles.channelText}>{item.channel}</Text>
           </View>
         </View>
-        <Text style={styles.messagePreview} numberOfLines={2}>
-          {item.lastMessagePreview || 'No messages'}
+        <Text style={styles.messagePreview} numberOfLines={3}>
+          {item.summary || item.lastMessagePreview || 'No messages'}
         </Text>
         <Text style={styles.dateText}>
           {date} at {time}

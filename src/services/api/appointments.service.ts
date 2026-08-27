@@ -59,6 +59,16 @@ class AppointmentsService {
   }
 
   /**
+   * Get a contact's appointments (linked by contactId)
+   */
+  async getAppointmentsByContact(contactId: string): Promise<Appointment[]> {
+    const response = await apiClient.get(
+      `/v1/admin/appointments/query?contactId=${contactId}&pageSize=50`,
+    );
+    return response.data.appointments || [];
+  }
+
+  /**
    * Get upcoming appointments for today
    */
   async getTodayAppointments(): Promise<Appointment[]> {
@@ -81,8 +91,7 @@ class AppointmentsService {
     endDate.setDate(today.getDate() + 30); // Next 30 days
 
     const response = await apiClient.get(
-      `/v1/admin/appointments?startDate=${
-        startDate.toISOString().split('T')[0]
+      `/v1/admin/appointments?startDate=${startDate.toISOString().split('T')[0]
       }&endDate=${endDate.toISOString().split('T')[0]}`,
     );
 
@@ -113,8 +122,7 @@ class AppointmentsService {
     endDate.setDate(today.getDate() - 1); // Up to yesterday
 
     const response = await apiClient.get(
-      `/v1/admin/appointments?startDate=${
-        startDate.toISOString().split('T')[0]
+      `/v1/admin/appointments?startDate=${startDate.toISOString().split('T')[0]
       }&endDate=${endDate.toISOString().split('T')[0]}`,
     );
 
@@ -148,8 +156,7 @@ class AppointmentsService {
       endDate.setDate(today.getDate() - 1); // Up to yesterday
 
       const response = await apiClient.get(
-        `/v1/admin/appointments?startDate=${
-          startDate.toISOString().split('T')[0]
+        `/v1/admin/appointments?startDate=${startDate.toISOString().split('T')[0]
         }&endDate=${endDate.toISOString().split('T')[0]}`,
       );
 

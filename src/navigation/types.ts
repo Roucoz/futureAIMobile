@@ -26,12 +26,28 @@ export type ChatStackParamList = {
 export type ContactsStackParamList = {
   ContactsList: undefined;
   ContactDetail: { contact: Contact };
+  InitiateChat: { phoneNumber: string; contactName?: string };
+  SocialMessage: {
+    channel: 'TELEGRAM' | 'INSTAGRAM';
+    nativeUserId: string;
+    contactName?: string;
+  };
+  SendSms: {
+    contactId: string;
+    phoneNumber: string;
+    contactName?: string;
+  };
   ContactConversations: {
     contactId: string;
     contactName: string;
     conversations: any[];
   };
   ContactTickets: { contactId: string; contactName: string; tickets: any[] };
+  ContactOrders: { contactName: string; orders: any[] };
+  ContactAppointments: { contactName: string; appointments: any[] };
+  // Pushed onto the Contacts stack so back returns to history, then contact
+  ConversationChat: { conversationId: string };
+  ContactTicketDetail: { ticketId: string };
   CreateTicket: { customerId?: string; conversationId?: string };
 };
 

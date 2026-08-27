@@ -13,15 +13,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { ContactsStackParamList } from '../../navigation/types';
 
 interface Ticket {
   id: string;
-  ticketNumber: string;
-  subject: string;
+  summary: string;
+  description?: string | null;
   status: string;
   priority: string;
-  category: string;
+  category: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,8 +34,24 @@ interface RouteParams {
   tickets: Ticket[];
 }
 
+type NavigationProp = StackNavigationProp<
+  ContactsStackParamList,
+  'ContactTickets'
+>;
+
+// Backend statuses are lowercase (new/open/pending/resolved/closed) but may
+// also arrive uppercase — cover both so the badge never falls back to a light
+// background with unreadable white text.
 const STATUS_COLORS: Record<string, string> = {
+  new: '#1890ff',
+  open: '#1890ff',
+  pending: '#fa8c16',
+  in_progress: '#fa8c16',
+  resolved: '#52c41a',
+  closed: '#8c8c8c',
+  NEW: '#1890ff',
   OPEN: '#1890ff',
+  PENDING: '#fa8c16',
   IN_PROGRESS: '#fa8c16',
   RESOLVED: '#52c41a',
   CLOSED: '#8c8c8c',
@@ -47,13 +65,14 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 
 const ContactTicketsScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
-  const { contactId, contactName, tickets } = route.params as RouteParams;
+  const { contactName, tickets } = route.params as RouteParams;
 
   const handleTicketPress = (ticketId: string) => {
-    // TODO: Navigate to ticket detail screen when implemented
-    console.log('Open ticket:', ticketId);
+    // Push TicketDetail onto the Contacts stack so "Back" returns to this list,
+    // then back again to the contact details.
+    navigation.navigate('ContactTicketDetail', { ticketId });
   };
 
   const renderTicket = ({ item }: { item: Ticket }) => {
@@ -68,13 +87,15 @@ const ContactTicketsScreen = () => {
         activeOpacity={0.7}
       >
         <View style={styles.ticketHeader}>
-          <Text style={styles.ticketNumber}>#{item.ticketNumber}</Text>
+          <Text style={styles.ticketSubject} numberOfLines={2}>
+            {item.summary}
+          </Text>
           <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-            <Text style={styles.badgeText}>{item.status}</Text>
+            <Text style={styles.badgeText}>
+              {(item.status || '').toUpperCase()}
+            </Text>
           </View>
         </View>
-
-        <Text style={styles.ticketSubject}>{item.subject}</Text>
 
         <View style={styles.ticketMeta}>
           <View style={[styles.priorityBadge, { borderColor: priorityColor }]}>
@@ -89,7 +110,7 @@ const ContactTicketsScreen = () => {
               color="#666"
               style={{ marginRight: 4 }}
             />
-            <Text style={styles.categoryText}>{item.category}</Text>
+            <Text style={styles.categoryText}>{item.category || '—'}</Text>
           </View>
         </View>
 

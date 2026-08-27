@@ -26,6 +26,8 @@ import { useModule } from '../../stores';
 import contactService, {
   Contact,
   GetContactsParams,
+  getInstagramUserId,
+  getTelegramChatId,
 } from '../../services/api/contact.service';
 
 type NavigationProp = StackNavigationProp<
@@ -140,11 +142,19 @@ const ContactsScreen = () => {
       const { conversationId } = await contactService.startConversation(
         contact.phoneNumber,
       );
-      // Navigate to ChatStack in parent navigator
-      (navigation as any).navigate('ChatStack', {
-        screen: 'ChatDetail',
-        params: { conversationId },
-      });
+      if (conversationId) {
+        // Existing open conversation → open it directly
+        (navigation as any).navigate('ChatStack', {
+          screen: 'ChatDetail',
+          params: { conversationId },
+        });
+      } else {
+        // No existing conversation → let the agent start one (message/template)
+        navigation.navigate('InitiateChat', {
+          phoneNumber: contact.phoneNumber,
+          contactName: contact.name || contact.phoneNumber,
+        });
+      }
     } catch (error: any) {
       console.error('Failed to start conversation:', error);
       Alert.alert(
@@ -173,6 +183,108 @@ const ContactsScreen = () => {
     } catch (error: any) {
       console.error('Failed to create ticket:', error);
       Alert.alert('Error', 'Failed to create ticket');
+    }
+  };
+
+  // Send SMS to contact
+  const handleSendSms = (contact: Contact) => {
+    navigation.navigate('SendSms', {
+      contactId: contact.id,
+      phoneNumber: contact.phoneNumber,
+      contactName: contact.name || contact.phoneNumber,
+    });
+  };
+
+  // Send Instagram Direct message to contact
+  const handleSendInstagram = async (contact: Contact) => {
+    try {
+      await moduleStore.ensureLoaded();
+      if (!moduleStore.instagram) {
+        Alert.alert(
+          'Module Not Enabled',
+          'The Instagram module is not enabled for your account.\n\nYou can enable it from the admin panel on the website (Configuration → Modules).',
+        );
+        return;
+      }
+
+      const igUserId = getInstagramUserId(contact);
+      if (!igUserId) {
+        Alert.alert(
+          'No Instagram Account',
+          'This contact has no Instagram account linked. They need to message you on Instagram first.',
+        );
+        return;
+      }
+
+      const { conversationId } =
+        await contactService.startInstagramConversation(igUserId);
+      if (conversationId) {
+        // Existing open Instagram conversation → open it directly
+        (navigation as any).navigate('ChatStack', {
+          screen: 'ChatDetail',
+          params: { conversationId },
+        });
+      } else {
+        // No existing conversation → let the agent compose an initial message
+        navigation.navigate('SocialMessage', {
+          channel: 'INSTAGRAM',
+          nativeUserId: igUserId,
+          contactName: contact.name || igUserId,
+        });
+      }
+    } catch (error: any) {
+      console.error('Failed to send Instagram message:', error);
+      Alert.alert(
+        'Error',
+        error.response?.data?.error || 'Failed to send Instagram message',
+      );
+    }
+  };
+
+  // Send Telegram message to contact
+  const handleSendTelegram = async (contact: Contact) => {
+    try {
+      await moduleStore.ensureLoaded();
+      if (!moduleStore.telegram) {
+        Alert.alert(
+          'Module Not Enabled',
+          'The Telegram module is not enabled for your account.\n\nYou can enable it from the admin panel on the website (Configuration → Modules).',
+        );
+        return;
+      }
+
+      const chatId = getTelegramChatId(contact);
+      if (!chatId) {
+        Alert.alert(
+          'No Telegram Account',
+          'This contact has no Telegram account linked. They need to message you on Telegram first.',
+        );
+        return;
+      }
+
+      const { conversationId } = await contactService.startTelegramConversation(
+        chatId,
+      );
+      if (conversationId) {
+        // Existing open Telegram conversation → open it directly
+        (navigation as any).navigate('ChatStack', {
+          screen: 'ChatDetail',
+          params: { conversationId },
+        });
+      } else {
+        // No existing conversation → let the agent compose an initial message
+        navigation.navigate('SocialMessage', {
+          channel: 'TELEGRAM',
+          nativeUserId: chatId,
+          contactName: contact.name || chatId,
+        });
+      }
+    } catch (error: any) {
+      console.error('Failed to send Telegram message:', error);
+      Alert.alert(
+        'Error',
+        error.response?.data?.error || 'Failed to send Telegram message',
+      );
     }
   };
 
@@ -253,21 +365,84 @@ const ContactsScreen = () => {
         )}
 
         <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={e => {
-              e.stopPropagation();
-              handleStartConversation(item);
-            }}
-          >
-            <Icon
-              name="chatbubbles"
-              size={16}
-              color="#1890ff"
-              style={{ marginRight: 4 }}
-            />
-            <Text style={styles.actionButtonText}>Chat</Text>
-          </TouchableOpacity>
+          {/* Only show Chat when reachable via WhatsApp/Telegram or the phone is verified */}
+          {(item.phoneVerified ||
+            item.channels.includes('WHATSAPP') ||
+            item.channels.includes('TELEGRAM')) && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={e => {
+                e.stopPropagation();
+                handleStartConversation(item);
+              }}
+            >
+              <Icon
+                name="chatbubbles"
+                size={16}
+                color="#1890ff"
+                style={{ marginRight: 4 }}
+              />
+              <Text style={styles.actionButtonText}>Chat</Text>
+            </TouchableOpacity>
+          )}
+          {/* Only show Send SMS when the phone number is verified */}
+          {item.phoneVerified && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={e => {
+                e.stopPropagation();
+                handleSendSms(item);
+              }}
+            >
+              <Icon
+                name="chatbox-ellipses"
+                size={16}
+                color="#1890ff"
+                style={{ marginRight: 4 }}
+              />
+              <Text style={styles.actionButtonText}>Send SMS</Text>
+            </TouchableOpacity>
+          )}
+          {/* Only show Send Telegram when the contact has a Telegram channel
+              and the Telegram module is enabled */}
+          {item.channels.includes('TELEGRAM') &&
+            (!moduleStore.isLoaded || moduleStore.telegram) && (
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={e => {
+                  e.stopPropagation();
+                  handleSendTelegram(item);
+                }}
+              >
+                <Icon
+                  name="paper-plane"
+                  size={16}
+                  color="#229ED9"
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={styles.actionButtonText}>Telegram</Text>
+              </TouchableOpacity>
+            )}
+          {/* Only show Send Instagram when the contact has an Instagram channel
+              and the Instagram module is enabled */}
+          {item.channels.includes('INSTAGRAM') &&
+            (!moduleStore.isLoaded || moduleStore.instagram) && (
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={e => {
+                  e.stopPropagation();
+                  handleSendInstagram(item);
+                }}
+              >
+                <Icon
+                  name="logo-instagram"
+                  size={16}
+                  color="#E4405F"
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={styles.actionButtonText}>Instagram</Text>
+              </TouchableOpacity>
+            )}
           {/* Only show Create Ticket when the ticketing module is enabled */}
           {(!moduleStore.isLoaded || moduleStore.ticketing) && (
             <TouchableOpacity

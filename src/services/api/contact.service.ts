@@ -17,13 +17,23 @@ export interface Contact {
   preferredLanguage: string | null;
   detectedLanguages: string[];
   timezone: string | null;
-  channels: ('WHATSAPP' | 'WIDGET' | 'SMS')[];
+  channels: (
+    | 'WHATSAPP'
+    | 'WIDGET'
+    | 'SMS'
+    | 'TELEGRAM'
+    | 'FACEBOOK_MESSENGER'
+    | 'INSTAGRAM'
+  )[];
+  aliases?: string[]; // Native channel ids (IG id, Telegram id, PSID, widget visitorId)
   tags: string[];
   notes: string | null;
   customFields: Record<string, any>;
   aiSummary: string | null;
   totalConversations: number;
   totalOrders: number;
+  totalAppointments: number;
+  totalTickets: number;
   totalSpent: number | null;
   averageRating: number | null;
   firstContactedAt: string;
@@ -53,6 +63,18 @@ export interface GetContactsParams {
   isVip?: boolean;
   sortBy?: 'lastContactedAt' | 'totalConversations' | 'name';
   sortOrder?: 'asc' | 'desc';
+}
+
+export interface WhatsAppTemplate {
+  id: string;
+  name: string;
+  language: string;
+  category: string;
+  status: string;
+  bodyText: string;
+  headerType?: string | null;
+  headerText?: string | null;
+  footerText?: string | null;
 }
 
 class ContactService {
@@ -157,14 +179,38 @@ class ContactService {
     );
     // Use the chats endpoint with the `search` filter (the backend's listChats
     // reads `search`, not `visitorId`) to find this contact's conversations.
-    const response = await apiClient.get(
-      `/v1/admin/chats?search=${encodeURIComponent(phoneNumber)}`,
-    );
+    // status=ALL so we return the full history (open + closed), not just OPEN.
+    // contactId makes the backend also include conversations linked via the
+    // contact's orders/tickets (even when visitorId no longer matches).
+    const params = new URLSearchParams({ status: 'ALL', limit: '50' });
+    if (phoneNumber) params.set('search', phoneNumber);
+    if (contactId) params.set('contactId', contactId);
+    const response = await apiClient.get(`/v1/admin/chats?${params.toString()}`);
     console.log(
       '✅ contactService.getContactConversations() - Count:',
       response.data.conversations?.length || 0,
     );
-    return response.data.conversations || [];
+    // Normalize the backend shape (last message lives in `messages[0]`) into the
+    // shape the ContactConversationsScreen renders. The chat summary is shown
+    // as the item text; summary may be a plain string or a JSON object.
+    return (response.data.conversations || []).map((c: any) => {
+      const rawSummary: unknown = c.summary;
+      let summary = '';
+      if (typeof rawSummary === 'string') {
+        summary = rawSummary;
+      } else if (rawSummary && typeof rawSummary === 'object') {
+        const s = (rawSummary as Record<string, unknown>).summary;
+        summary = typeof s === 'string' ? s : JSON.stringify(rawSummary);
+      }
+      return {
+        id: c.id,
+        status: c.status,
+        channel: c.channel,
+        summary,
+        lastMessagePreview: c.messages?.[0]?.content || '',
+        updatedAt: c.updatedAt,
+      };
+    });
   }
 
   /**
@@ -195,19 +241,13 @@ class ContactService {
   }
 
   /**
-   * Find an existing conversation for a contact (by phone number).
-   * Returns the most recent OPEN conversation if one exists.
-   *
-   * NOTE: The old implementation POSTed to `/v1/admin/conversations/initiate`,
-   * which does NOT exist on the backend (the real endpoint is
-   * `/v1/admin/chats/initiate` and requires `phoneNumber`, `agentId` plus a
-   * message/template) — so it always failed with 404. We now look up the
-   * conversation via the chats listing instead, and give a clear message when
-   * there is nothing to open yet.
+   * Find an existing OPEN conversation for a contact (by phone number).
+   * Returns `null` when there is nothing to open yet — in that case the UI
+   * should let the agent start a new chat (see initiateConversation).
    */
   async startConversation(
     phoneNumber: string,
-  ): Promise<{ conversationId: string }> {
+  ): Promise<{ conversationId: string | null }> {
     console.log(
       '🔄 contactService.startConversation() - phoneNumber:',
       phoneNumber,
@@ -226,13 +266,227 @@ class ContactService {
       );
       return { conversationId: openConversation.id };
     }
+    return { conversationId: null };
+  }
 
-    const error: any = new Error(
-      'No existing conversation for this customer. Ask them to start a chat from the website widget or WhatsApp first.',
+  /**
+   * Check WhatsApp 24-hour eligibility for a phone number.
+   * Mirrors the web admin: GET /v1/admin/chats/check-eligibility/:phoneNumber
+   */
+  async checkEligibility(
+    phoneNumber: string,
+  ): Promise<{
+    hasActiveConversation: boolean;
+    conversationId: string | null;
+    canInitiate: boolean;
+    within24Hours: boolean;
+    requiresTemplate: boolean;
+    lastCustomerMessageAt: string | null;
+  }> {
+    const response = await apiClient.get(
+      `/v1/admin/chats/check-eligibility/${encodeURIComponent(phoneNumber)}`,
     );
-    error.status = 404;
-    throw error;
+    return response.data;
+  }
+
+  /**
+   * Fetch approved WhatsApp templates, used to start a conversation when the
+   * customer is outside the 24-hour free-form window.
+   */
+  async getApprovedWhatsAppTemplates(): Promise<WhatsAppTemplate[]> {
+    const response = await apiClient.get(
+      '/v1/admin/whatsapp-templates?status=APPROVED',
+    );
+    return response.data.templates || [];
+  }
+
+  /**
+   * Initiate a new WhatsApp conversation by sending an initial message or an
+   * approved template. Mirrors the web admin: POST /v1/admin/chats/initiate
+   */
+  async initiateConversation(payload: {
+    phoneNumber: string;
+    agentId: string;
+    message?: string;
+    templateId?: string;
+    templateParams?: string[];
+  }): Promise<{ conversationId: string }> {
+    console.log(
+      '🔄 contactService.initiateConversation() - phoneNumber:',
+      payload.phoneNumber,
+    );
+    const response = await apiClient.post('/v1/admin/chats/initiate', payload);
+    console.log(
+      '✅ contactService.initiateConversation() - conversationId:',
+      response.data.conversation?.id,
+    );
+    return { conversationId: response.data.conversation.id };
+  }
+
+  /**
+   * Send an SMS directly to a contact.
+   * Mirrors the web admin: POST /v1/admin/sms/send-to-contact
+   */
+  async sendSmsToContact(
+    contactId: string,
+    message: string,
+  ): Promise<{ messageId: string; segmentCount: number; cost: number }> {
+    console.log(
+      '🔄 contactService.sendSmsToContact() - contactId:',
+      contactId,
+    );
+    const response = await apiClient.post('/v1/admin/sms/send-to-contact', {
+      contactId,
+      message,
+    });
+    return response.data.data;
+  }
+
+  /**
+   * Find an existing OPEN Instagram conversation for a customer (by IG user id).
+   * Returns `null` when there is nothing to open yet — in that case the UI
+   * should let the agent start a new one (see initiateInstagramConversation).
+   */
+  async startInstagramConversation(
+    igUserId: string,
+  ): Promise<{ conversationId: string | null }> {
+    console.log(
+      '🔄 contactService.startInstagramConversation() - igUserId:',
+      igUserId,
+    );
+    const response = await apiClient.get(
+      `/v1/admin/chats?search=${encodeURIComponent(igUserId)}`,
+    );
+    const conversations = response.data.conversations || [];
+    const openInstagram = conversations.find(
+      (c: any) => c.status === 'OPEN' && c.channel === 'INSTAGRAM',
+    );
+    if (openInstagram) {
+      console.log(
+        '✅ contactService.startInstagramConversation() - conversationId:',
+        openInstagram.id,
+      );
+      return { conversationId: openInstagram.id };
+    }
+    return { conversationId: null };
+  }
+
+  /**
+   * Initiate a new Instagram conversation by sending an initial Direct message.
+   * Instagram has no approved-template requirement (unlike WhatsApp), so the
+   * agent always sends a free-form message.
+   * POST /v1/admin/chats/initiate with channel=INSTAGRAM
+   */
+  async initiateInstagramConversation(payload: {
+    phoneNumber: string; // Instagram user id (native id stored on the contact)
+    agentId: string;
+    message: string;
+  }): Promise<{ conversationId: string }> {
+    console.log(
+      '🔄 contactService.initiateInstagramConversation() - igUserId:',
+      payload.phoneNumber,
+    );
+    const response = await apiClient.post('/v1/admin/chats/initiate', {
+      ...payload,
+      channel: 'INSTAGRAM',
+    });
+    console.log(
+      '✅ contactService.initiateInstagramConversation() - conversationId:',
+      response.data.conversation?.id,
+    );
+    return { conversationId: response.data.conversation.id };
+  }
+
+  /**
+   * Find an existing OPEN Telegram conversation for a customer (by chat id).
+   * Returns `null` when there is nothing to open yet — in that case the UI
+   * should let the agent start a new one (see initiateTelegramConversation).
+   */
+  async startTelegramConversation(
+    chatId: string,
+  ): Promise<{ conversationId: string | null }> {
+    console.log(
+      '🔄 contactService.startTelegramConversation() - chatId:',
+      chatId,
+    );
+    const response = await apiClient.get(
+      `/v1/admin/chats?search=${encodeURIComponent(chatId)}`,
+    );
+    const conversations = response.data.conversations || [];
+    const openTelegram = conversations.find(
+      (c: any) => c.status === 'OPEN' && c.channel === 'TELEGRAM',
+    );
+    if (openTelegram) {
+      console.log(
+        '✅ contactService.startTelegramConversation() - conversationId:',
+        openTelegram.id,
+      );
+      return { conversationId: openTelegram.id };
+    }
+    return { conversationId: null };
+  }
+
+  /**
+   * Initiate a new Telegram conversation by sending an initial message.
+   * Telegram has no approved-template requirement (unlike WhatsApp), so the
+   * agent always sends a free-form message.
+   * POST /v1/admin/chats/initiate with channel=TELEGRAM
+   */
+  async initiateTelegramConversation(payload: {
+    phoneNumber: string; // Telegram chat id (native id stored on the contact)
+    agentId: string;
+    message: string;
+  }): Promise<{ conversationId: string }> {
+    console.log(
+      '🔄 contactService.initiateTelegramConversation() - chatId:',
+      payload.phoneNumber,
+    );
+    const response = await apiClient.post('/v1/admin/chats/initiate', {
+      ...payload,
+      channel: 'TELEGRAM',
+    });
+    console.log(
+      '✅ contactService.initiateTelegramConversation() - conversationId:',
+      response.data.conversation?.id,
+    );
+    return { conversationId: response.data.conversation.id };
   }
 }
+
+/**
+ * Resolve the native id (Telegram chat id / Instagram user id) for a contact
+ * that has the given channel.
+ * For phone-less contacts, `phoneNumber` stores the native id. When the
+ * contact also has a real phone (primary identifier), the native id lives in
+ * `aliases`. Returns null when the contact isn't reachable on that channel.
+ */
+const getNativeChannelUserId = (
+  contact: Contact,
+  channel: 'TELEGRAM' | 'INSTAGRAM',
+): string | null => {
+  if (!contact.channels?.includes(channel)) return null;
+
+  // Native ids are numeric (Telegram chat ids may be negative) — prefer a
+  // matching alias entry, then fall back to phoneNumber.
+  const aliases = Array.isArray(contact.aliases) ? contact.aliases : [];
+  const nativeAlias = aliases.find(a => /^-?\d{6,}$/.test(a));
+  if (nativeAlias) return nativeAlias;
+
+  if (/^-?\d{6,}$/.test(contact.phoneNumber)) return contact.phoneNumber;
+
+  return null;
+};
+
+/**
+ * Resolve the Instagram user id for a contact that has an INSTAGRAM channel.
+ */
+export const getInstagramUserId = (contact: Contact): string | null =>
+  getNativeChannelUserId(contact, 'INSTAGRAM');
+
+/**
+ * Resolve the Telegram chat id for a contact that has a TELEGRAM channel.
+ */
+export const getTelegramChatId = (contact: Contact): string | null =>
+  getNativeChannelUserId(contact, 'TELEGRAM');
 
 export default new ContactService();
