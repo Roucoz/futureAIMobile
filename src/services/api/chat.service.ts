@@ -10,6 +10,7 @@ export interface ConversationPreview {
   id: string;
   visitorId: string;
   domain: string;
+  channel: string;
   mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED' | 'ORDER_IN_PROGRESS';
   status: 'OPEN' | 'CLOSED' | 'ARCHIVED';
   unreadCount: number;
@@ -28,6 +29,8 @@ export interface ConversationDetail {
   id: string;
   visitorId: string;
   domain: string;
+  channel: string;
+  status: string;
   mode: 'AI_ACTIVE' | 'HUMAN_TAKEOVER' | 'AI_PAUSED' | 'ORDER_IN_PROGRESS';
   unreadCount: number;
   assignedToMemberId: string | null;

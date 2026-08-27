@@ -29,6 +29,7 @@ import { format } from 'date-fns';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useChat, useAuth, useModule } from '../../stores';
 import { resolveImageUrl } from '../../utils/imageUrl';
+import { getConversationChannel } from '../../utils/channel';
 import { ChatStackParamList } from '../../navigation/types';
 import VoicePlayer from '../../components/audio/VoicePlayer';
 import ScreenBackground from '../../components/common/ScreenBackground';
@@ -287,6 +288,39 @@ const ChatDetailScreen = observer(() => {
 
   const handleSend = async () => {
     if (!messageText.trim() || !authStore.memberId) return;
+
+    // Channel + status gating for sending on mobile:
+    // - Facebook/Instagram replies aren't supported yet → inform "coming soon".
+    // - Closed widget chats can no longer receive messages → block.
+    // - WhatsApp/Telegram still deliver even when closed → allowed.
+    const conversation =
+      chatStore.conversationDetail ?? chatStore.selectedConversation;
+    if (conversation) {
+      const channel = getConversationChannel(
+        conversation.channel,
+        conversation.domain,
+      );
+      const status = conversation.status || 'OPEN';
+
+      if (channel === 'FACEBOOK_MESSENGER' || channel === 'INSTAGRAM') {
+        Alert.alert(
+          'Coming Soon',
+          'Sending messages to Facebook and Instagram chats is coming soon.',
+        );
+        return;
+      }
+
+      if (
+        channel === 'WIDGET' &&
+        (status === 'CLOSED' || status === 'ARCHIVED')
+      ) {
+        Alert.alert(
+          'This chat is closed',
+          'You can only send messages to WhatsApp and Telegram chats once they are closed.',
+        );
+        return;
+      }
+    }
 
     setSending(true);
     try {

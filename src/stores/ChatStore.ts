@@ -41,6 +41,7 @@ export const ConversationPreview = types
     id: types.identifier,
     visitorId: types.string,
     domain: types.string,
+    channel: types.optional(types.string, 'WIDGET'),
     mode: types.enumeration(['AI_ACTIVE', 'HUMAN_TAKEOVER', 'AI_PAUSED', 'ORDER_IN_PROGRESS']),
     status: types.optional(
       types.enumeration(['OPEN', 'CLOSED', 'ARCHIVED']),
@@ -91,6 +92,8 @@ export const ConversationDetail = types.model('ConversationDetail', {
   id: types.identifier,
   visitorId: types.string,
   domain: types.string,
+  channel: types.optional(types.string, 'WIDGET'),
+  status: types.optional(types.string, 'OPEN'),
   mode: types.enumeration(['AI_ACTIVE', 'HUMAN_TAKEOVER', 'AI_PAUSED', 'ORDER_IN_PROGRESS']),
   unreadCount: types.number,
   assignedToMemberId: types.maybeNull(types.string),
