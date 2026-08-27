@@ -118,6 +118,12 @@ const ContactsScreen = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Make sure module statuses are loaded so module-gated quick actions
+  // render correctly (hidden when the corresponding module is disabled).
+  useEffect(() => {
+    moduleStore.ensureLoaded();
+  }, [moduleStore]);
+
   // Refresh
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -406,7 +412,8 @@ const ContactsScreen = () => {
           {/* Only show Send Telegram when the contact has a Telegram channel
               and the Telegram module is enabled */}
           {item.channels.includes('TELEGRAM') &&
-            (!moduleStore.isLoaded || moduleStore.telegram) && (
+            moduleStore.isLoaded &&
+            moduleStore.telegram && (
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={e => {
@@ -426,7 +433,8 @@ const ContactsScreen = () => {
           {/* Only show Send Instagram when the contact has an Instagram channel
               and the Instagram module is enabled */}
           {item.channels.includes('INSTAGRAM') &&
-            (!moduleStore.isLoaded || moduleStore.instagram) && (
+            moduleStore.isLoaded &&
+            moduleStore.instagram && (
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={e => {
@@ -444,7 +452,7 @@ const ContactsScreen = () => {
               </TouchableOpacity>
             )}
           {/* Only show Create Ticket when the ticketing module is enabled */}
-          {(!moduleStore.isLoaded || moduleStore.ticketing) && (
+          {moduleStore.isLoaded && moduleStore.ticketing && (
             <TouchableOpacity
               style={styles.actionButton}
               onPress={e => {

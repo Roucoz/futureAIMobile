@@ -35,6 +35,24 @@ export const ModuleStore = types
         const fetchModuleStatuses = flow(function* () {
             if (self.isLoading) return;
             self.isLoading = true;
+
+            // Reset to disabled defaults BEFORE fetching so stale flags from a
+            // previous session/project never leak (e.g. right after switching
+            // Google accounts). If the fetch fails below, flags stay disabled,
+            // which is the safe default — a disabled module never gets called.
+            self.widget = true; // Widget is always enabled (base feature)
+            self.whatsapp = false;
+            self.facebook = false;
+            self.instagram = false;
+            self.telegram = false;
+            self.sms = false;
+            self.email = false;
+            self.appointments = false;
+            self.orders = false;
+            self.exitIntent = false;
+            self.ticketing = false;
+            self.isLoaded = false;
+
             try {
                 const modules: EnabledModule[] =
                     yield moduleService.getEnabledModules();
@@ -55,7 +73,7 @@ export const ModuleStore = types
                 self.exitIntent = enabled.has('MODULE_EXIT_INTENT');
                 self.ticketing = enabled.has('MODULE_TICKETING');
                 self.isLoaded = true;
-            } catch (error) {
+            } catch {
                 // Keep defaults (false) if the fetch fails — modules will be retried
                 // on the next ensureLoaded call. No warning is raised here on purpose.
             } finally {

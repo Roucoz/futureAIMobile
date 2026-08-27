@@ -3,7 +3,7 @@
  * Shows detailed contact information with action buttons
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -39,6 +39,12 @@ const ContactDetailScreen = () => {
   const { contact } = route.params as RouteParams;
   const moduleStore = useModule();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Make sure module statuses are loaded so module-gated buttons render
+  // correctly (hidden when the corresponding module is disabled).
+  useEffect(() => {
+    moduleStore.ensureLoaded();
+  }, [moduleStore]);
 
   const displayName = contact.name || contact.phoneNumber;
   const lastContactDate = new Date(
@@ -118,6 +124,15 @@ const ContactDetailScreen = () => {
   // View tickets
   const handleViewTickets = async () => {
     try {
+      await moduleStore.ensureLoaded();
+      if (!moduleStore.ticketing) {
+        Alert.alert(
+          'Module Not Enabled',
+          'The Tickets module is not enabled for your account.',
+        );
+        return;
+      }
+
       setIsLoading(true);
       const tickets = await contactService.getContactTickets(contact.id);
 
@@ -302,7 +317,7 @@ const ContactDetailScreen = () => {
           )}
 
           {/* Only show Create Ticket when the ticketing module is enabled */}
-          {(!moduleStore.isLoaded || moduleStore.ticketing) && (
+          {moduleStore.isLoaded && moduleStore.ticketing && (
             <TouchableOpacity
               style={[styles.actionButton, styles.secondaryButton]}
               onPress={handleCreateTicket}
@@ -344,31 +359,34 @@ const ContactDetailScreen = () => {
             <Text style={styles.historyButtonArrow}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.historyButton}
-            onPress={handleViewTickets}
-            disabled={isLoading}
-          >
-            <View style={styles.historyButtonHeader}>
-              <Icon
-                name="ticket"
-                size={24}
-                color="#1890ff"
-                style={styles.historyButtonIcon}
-              />
-              <View style={styles.historyButtonInfo}>
-                <Text style={styles.historyButtonTitle}>Ticket History</Text>
-                <Text style={styles.historyButtonSubtitle}>
-                  {contact.totalTickets} ticket
-                  {contact.totalTickets !== 1 ? 's' : ''}
-                </Text>
+          {/* Only show Ticket History when the ticketing module is enabled */}
+          {moduleStore.isLoaded && moduleStore.ticketing && (
+            <TouchableOpacity
+              style={styles.historyButton}
+              onPress={handleViewTickets}
+              disabled={isLoading}
+            >
+              <View style={styles.historyButtonHeader}>
+                <Icon
+                  name="ticket"
+                  size={24}
+                  color="#1890ff"
+                  style={styles.historyButtonIcon}
+                />
+                <View style={styles.historyButtonInfo}>
+                  <Text style={styles.historyButtonTitle}>Ticket History</Text>
+                  <Text style={styles.historyButtonSubtitle}>
+                    {contact.totalTickets} ticket
+                    {contact.totalTickets !== 1 ? 's' : ''}
+                  </Text>
+                </View>
               </View>
-            </View>
-            <Text style={styles.historyButtonArrow}>›</Text>
-          </TouchableOpacity>
+              <Text style={styles.historyButtonArrow}>›</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Only show Orders history when the orders module is enabled */}
-          {(!moduleStore.isLoaded || moduleStore.orders) && (
+          {moduleStore.isLoaded && moduleStore.orders && (
             <TouchableOpacity
               style={styles.historyButton}
               onPress={handleViewOrders}
@@ -394,7 +412,7 @@ const ContactDetailScreen = () => {
           )}
 
           {/* Only show Appointments history when the appointments module is enabled */}
-          {(!moduleStore.isLoaded || moduleStore.appointments) && (
+          {moduleStore.isLoaded && moduleStore.appointments && (
             <TouchableOpacity
               style={styles.historyButton}
               onPress={handleViewAppointments}

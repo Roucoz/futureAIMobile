@@ -98,6 +98,20 @@ const AppointmentsScreen = observer(() => {
     }
   }, [appointmentStore, moduleStore]);
 
+  // Reload appointments, but only when the module is enabled. Guards the
+  // app-foreground, WebSocket-reconnect and pull-to-refresh paths so a
+  // disabled module never triggers an API call (avoiding 403 "Module not
+  // enabled" warnings after login/project switches).
+  const reloadIfEnabled = useCallback(() => {
+    moduleStore.ensureLoaded().then(() => {
+      if (!moduleStore.appointments) return; // module disabled - skip
+      appointmentStore
+        .fetchAppointments()
+        .then(() => setRefreshKey(k => k + 1))
+        .catch(err => console.error('Failed to reload appointments:', err));
+    });
+  }, [appointmentStore, moduleStore]);
+
   // Keep a stable ref for foreground listener
   const loadAppointmentsRef = useRef(loadAppointments);
   loadAppointmentsRef.current = loadAppointments;
@@ -123,10 +137,7 @@ const AppointmentsScreen = observer(() => {
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
-        appointmentStore
-          .fetchAppointments()
-          .then(() => setRefreshKey(k => k + 1))
-          .catch(err => console.error('Failed to reload:', err));
+        reloadIfEnabled();
       }
     };
     const subscription = AppState.addEventListener(
@@ -134,7 +145,7 @@ const AppointmentsScreen = observer(() => {
       handleAppStateChange,
     );
     return () => subscription.remove();
-  }, []);
+  }, [reloadIfEnabled]);
 
   // WebSocket: listen for appointment updates and reconnect events
   useEffect(() => {
@@ -143,21 +154,21 @@ const AppointmentsScreen = observer(() => {
         message.type === 'appointment_updated' ||
         message.type === 'ws_reconnected'
       ) {
-        // Reload data first, THEN force re-render
-        appointmentStore
-          .fetchAppointments()
-          .then(() => setRefreshKey(k => k + 1))
-          .catch(err => console.error('Failed to reload appointments:', err));
+        // Reload data first, THEN force re-render (module-gated)
+        reloadIfEnabled();
       }
     });
     return unsubscribe;
-  }, []); // Stable - no deps needed, appointmentStore is stable MST reference
+  }, [reloadIfEnabled]); // reloadIfEnabled is stable — appointmentStore/moduleStore are stable MST refs
 
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      await appointmentStore.fetchAppointments();
-      setRefreshKey(k => k + 1);
+      await moduleStore.ensureLoaded();
+      if (moduleStore.appointments) {
+        await appointmentStore.fetchAppointments();
+        setRefreshKey(k => k + 1);
+      }
     } catch (err) {
       console.error('Failed to reload:', err);
     } finally {
