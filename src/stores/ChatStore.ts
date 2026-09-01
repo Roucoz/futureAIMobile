@@ -343,14 +343,20 @@ export const ChatStore = types
       try {
         yield chatService.closeConversation(conversationId);
 
-        // Reload conversations
-        yield loadConversations();
+        // Immediately remove the closed conversation from the local list so it
+        // disappears even if the reload below fails.
+        self.conversations.replace(
+          self.conversations.filter(c => c.id !== conversationId),
+        );
 
         // Clear selected conversation if it was the closed one
         if (self.selectedChatId === conversationId) {
           self.selectedChatId = null;
           self.conversationDetail = null;
         }
+
+        // Reload conversations
+        yield loadConversations();
 
         console.log('✅ ChatStore.closeConversation() - Success');
       } catch (error: any) {
@@ -545,17 +551,24 @@ export const ChatStore = types
             break;
 
           case 'conversation_closed':
+            if (message.conversationId) {
+              // Immediately remove the closed conversation from the local list
+              // so it disappears even before the reload below completes.
+              self.conversations.replace(
+                self.conversations.filter(
+                  c => c.id !== message.conversationId,
+                ),
+              );
+              // Clear the detail screen if it's showing the closed conversation
+              if (self.selectedChatId === message.conversationId) {
+                self.selectedChatId = null;
+                self.conversationDetail = null;
+              }
+            }
             // Reload conversations when a conversation is closed
             self
               .loadConversations()
               .catch((err: any) => console.error('Failed to reload:', err));
-            if (
-              message.conversationId &&
-              self.selectedChatId === message.conversationId
-            ) {
-              self.selectedChatId = null;
-              self.conversationDetail = null;
-            }
             break;
 
           case 'conversation_assignment_changed':

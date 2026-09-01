@@ -57,6 +57,23 @@ export interface ChatMessage {
   transcription: string | null;
 }
 
+/**
+ * AI-generated conversation summary used when closing a chat
+ * (matches the web admin CloseChatModal payload).
+ */
+export interface ConversationSummary {
+  topic: string;
+  customerType: string;
+  sentiment: string;
+  urgency: string;
+  opportunityValue: string;
+  orderContext: string | null;
+  complaintCategory: string | null;
+  positiveFeedback: string | null;
+  outcome: string;
+  summary: string;
+}
+
 class ChatService {
   /**
    * Get all conversations (matches web admin)
@@ -172,14 +189,44 @@ class ChatService {
   }
 
   /**
-   * Close conversation (requires chats:close permission)
+   * Close conversation (requires chats:close permission).
+   * The backend requires an AI-generated summary to close a chat, so mirror
+   * the web admin flow: generate the summary first, then close with it. If
+   * summary generation fails (AI unavailable, empty conversation, ...), fall
+   * back to a minimal summary so the chat can always be closed.
    */
   async closeConversation(conversationId: string): Promise<void> {
     console.log(
       '🔄 chatService.closeConversation() - conversationId:',
       conversationId,
     );
-    await apiClient.post(`/v1/admin/chats/${conversationId}/close`);
+    let summary: ConversationSummary;
+    try {
+      const summaryResponse = await apiClient.post(
+        `/v1/admin/chats/${conversationId}/summary`,
+      );
+      summary = summaryResponse.data.summary;
+    } catch (error) {
+      console.error(
+        '⚠️ chatService.closeConversation() - summary generation failed, using fallback:',
+        error,
+      );
+      summary = {
+        topic: 'general',
+        customerType: 'existing',
+        sentiment: 'neutral',
+        urgency: 'low',
+        opportunityValue: 'none',
+        orderContext: null,
+        complaintCategory: null,
+        positiveFeedback: null,
+        outcome: 'closed',
+        summary: 'Conversation closed by agent.',
+      };
+    }
+    await apiClient.post(`/v1/admin/chats/${conversationId}/close`, {
+      summary,
+    });
     console.log('✅ chatService.closeConversation() - Success');
   }
 

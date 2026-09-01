@@ -78,6 +78,8 @@ const ChatDetailScreen = observer(() => {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const flatListRef = useRef<FlatList>(null);
+  // Guards against double-navigation when the viewed chat gets closed.
+  const leftScreenRef = useRef(false);
 
   const messages = chatStore.conversationDetail?.messages || [];
 
@@ -120,6 +122,51 @@ const ChatDetailScreen = observer(() => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
+
+  // Tracks that this conversation's detail has loaded at least once, so the
+  // guard below never fires before we actually have something on screen.
+  const detailLoadedRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      chatStore.conversationDetail &&
+      chatStore.conversationDetail.id === conversationId
+    ) {
+      detailLoadedRef.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatStore.conversationDetail, conversationId]);
+
+  // Whether the viewed conversation still exists in the loaded list.
+  const conversationExists = chatStore.conversations.some(
+    c => c.id === conversationId,
+  );
+
+  // When the currently-viewed conversation is closed (by the AI auto-close,
+  // another agent, or this user), the store clears its details — leave the
+  // detail screen so the closed chat is no longer shown and can't be closed
+  // again.
+  useEffect(() => {
+    if (
+      !leftScreenRef.current &&
+      detailLoadedRef.current &&
+      !chatStore.isDetailLoading &&
+      chatStore.conversationDetail === null &&
+      chatStore.selectedChatId === null &&
+      !conversationExists
+    ) {
+      leftScreenRef.current = true;
+      navigation.goBack();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    conversationId,
+    chatStore.isDetailLoading,
+    chatStore.conversationDetail,
+    chatStore.selectedChatId,
+    conversationExists,
+    navigation,
+  ]);
 
   // Track keyboard height to push input bar up on both platforms
   useEffect(() => {
@@ -276,7 +323,12 @@ const ChatDetailScreen = observer(() => {
           onPress: async () => {
             try {
               await chatStore.closeConversation(conversationId);
-              navigation.goBack();
+              // Navigate away unless the reactive guard already did (e.g. the
+              // close was also broadcast over WebSocket first).
+              if (!leftScreenRef.current) {
+                leftScreenRef.current = true;
+                navigation.goBack();
+              }
             } catch {
               Alert.alert('Error', 'Failed to close conversation');
             }
