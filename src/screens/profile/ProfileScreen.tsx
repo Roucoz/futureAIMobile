@@ -10,7 +10,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
@@ -19,6 +18,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../../stores';
 import { resolveImageUrl } from '../../utils/imageUrl';
 import ScreenBackground from '../../components/common/ScreenBackground';
+import { ZoomableImage } from '../../components/common/ZoomableImage';
 import { format } from 'date-fns';
 
 const ProfileScreen = observer(() => {
@@ -71,9 +71,10 @@ const ProfileScreen = observer(() => {
               {/* Avatar Circle */}
               <View style={styles.avatarContainer}>
                 {authStore.user?.avatarUrl ? (
-                  <Image
-                    source={{ uri: resolveImageUrl(authStore.user.avatarUrl)! }}
+                  <ZoomableImage
+                    uri={resolveImageUrl(authStore.user.avatarUrl)!}
                     style={styles.avatarImage}
+                    accessibilityLabel="View your profile picture full screen"
                   />
                 ) : (
                   <View style={styles.avatar}>
