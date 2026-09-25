@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">Tuxon</string>
+    <!-- App display name is injected per product flavor via resValue in app/build.gradle:
+         prod = "Tuxon", dev = "Tuxon Dev". Do not redefine string/app_name here. -->
 </resources>

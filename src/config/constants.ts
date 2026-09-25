@@ -2,7 +2,7 @@
  * App Constants
  */
 
-export const APP_NAME = 'FutureAI Mobile';
+export const APP_NAME = 'Tuxon';
 
 export const STORAGE_KEYS = {
   AUTH_TOKEN: 'futureai.mobile.auth.token',

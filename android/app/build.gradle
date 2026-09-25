@@ -4,6 +4,18 @@ apply plugin: "com.facebook.react"
 apply plugin: "com.google.gms.google-services"
 
 /**
+ * Release signing is loaded from the local (git-ignored) file android/keystore.properties.
+ * It was generated once by the keystore setup step; NEVER commit keystore.properties
+ * or tuxon-release.keystore, and keep a safe backup of the keystore (you need it to
+ * publish updates to the Play Store).
+ */
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+/**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
  */
@@ -78,14 +90,35 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.futureaimobile"
+    namespace "com.tuxon.app"
+
     defaultConfig {
-        applicationId "com.futureaimobile"
+        // NOTE: applicationId is set per product flavor (prod = com.tuxon.app, dev = com.tuxon.dev).
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
     }
+
+    // Two store variants built from one codebase:
+    //   prod  → "Tuxon"     (com.tuxon.app) → https://api.tuxon.ai
+    //   dev   → "Tuxon Dev" (com.tuxon.dev) → https://dev-api.tuxon.ai
+    // Google Services (Firebase) must have BOTH package names registered, with the
+    // release keystore SHA-1 for com.tuxon.app, or the build fails at google-services step.
+    flavorDimensions "store"
+    productFlavors {
+        prod {
+            dimension "store"
+            applicationId "com.tuxon.app"
+            resValue "string", "app_name", "Tuxon"
+        }
+        dev {
+            dimension "store"
+            applicationId "com.tuxon.dev"
+            resValue "string", "app_name", "Tuxon Dev"
+        }
+    }
+
     signingConfigs {
         debug {
             storeFile file('debug.keystore')
@@ -93,15 +126,21 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }

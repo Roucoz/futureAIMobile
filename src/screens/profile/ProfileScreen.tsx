@@ -159,7 +159,7 @@ const ProfileScreen = observer(() => {
             </View>
 
             {/* App Version */}
-            <Text style={styles.version}>Future AI Mobile v1.0.0</Text>
+            <Text style={styles.version}>Tuxon Mobile v1.0.0</Text>
           </ScrollView>
         </View>
       </ScreenBackground>

@@ -203,6 +203,37 @@ class AuthService {
   }
 
   /**
+   * Send a password-reset code to the user's email ("forgot password").
+   * Response may indicate a Google-only account: { sent: false, provider: "google", message }.
+   */
+  async forgotPassword(
+    email: string,
+  ): Promise<{
+    sent: boolean;
+    provider?: 'google';
+    message?: string;
+    expiresIn?: number;
+    cooldownSeconds?: number;
+  }> {
+    const response = await apiClient.post('/v1/auth/forgot-password', {
+      email,
+    });
+    return response.data;
+  }
+
+  /**
+   * Verify the emailed reset code and set a new password.
+   */
+  async resetPassword(input: {
+    email: string;
+    code: string;
+    newPassword: string;
+  }): Promise<{ ok: boolean }> {
+    const response = await apiClient.post('/v1/auth/reset-password', input);
+    return response.data;
+  }
+
+  /**
    * Verify an emailed sign-in code and log in.
    * Response shape matches /v1/auth/login (may require 2FA).
    */

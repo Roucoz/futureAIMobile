@@ -1,4 +1,4 @@
-package com.futureaimobile
+package com.tuxon.app
 
 import android.os.Bundle
 import com.facebook.react.ReactActivity

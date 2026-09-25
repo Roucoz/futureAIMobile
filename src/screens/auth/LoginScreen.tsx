@@ -23,10 +23,16 @@ const LoginScreen = observer(() => {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mode, setMode] = useState<'password' | 'otp'>('password');
+  const [mode, setMode] = useState<'password' | 'otp' | 'forgot'>('password');
   const [otpEmail, setOtpEmail] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
+
+  // Forgot-password state (email → code + new password)
+  const [fpEmail, setFpEmail] = useState('');
+  const [fpSent, setFpSent] = useState(false);
+  const [fpCode, setFpCode] = useState('');
+  const [fpNewPassword, setFpNewPassword] = useState('');
 
   const handleLogin = async () => {
     try {
@@ -85,6 +91,76 @@ const LoginScreen = observer(() => {
     }
   };
 
+  const handleForgotRequest = async () => {
+    if (!fpEmail.trim()) {
+      Alert.alert('Email Required', 'Enter your account email.');
+      return;
+    }
+    try {
+      const result = await authStore.forgotPassword(fpEmail.trim());
+
+      // Google-only account — no password to reset. Inform the user right here
+      // instead of leaving them to wait for an email that won't arrive.
+      if (result && result.sent === false && result.provider === 'google') {
+        Alert.alert(
+          'Google sign-in account',
+          result.message ||
+            'This account uses Google sign-in and has no password. Use Continue with Google to sign in instead.',
+        );
+        return;
+      }
+
+      setFpSent(true);
+      Alert.alert(
+        'Check Your Email',
+        "If an account exists for that email, we've sent you instructions.",
+      );
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to send reset code';
+      console.error('❌ Forgot-password request failed:', errorMessage);
+      Alert.alert('Request Failed', errorMessage);
+      authStore.clearError();
+    }
+  };
+
+  const handleForgotReset = async () => {
+    if (fpCode.length !== 6) {
+      Alert.alert('Missing Code', 'Enter the 6-digit code from your email.');
+      return;
+    }
+    if (fpNewPassword.length < 8) {
+      Alert.alert(
+        'Weak Password',
+        'Your new password must be at least 8 characters.',
+      );
+      return;
+    }
+    try {
+      await authStore.resetPassword({
+        email: fpEmail.trim(),
+        code: fpCode,
+        newPassword: fpNewPassword,
+      });
+      Alert.alert('Password Updated', 'Sign in with your new password.', [
+        {
+          text: 'OK',
+          onPress: () => {
+            setMode('password');
+            setFpEmail('');
+            setFpSent(false);
+            setFpCode('');
+            setFpNewPassword('');
+          },
+        },
+      ]);
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to reset password';
+      console.error('❌ Forgot-password reset failed:', errorMessage);
+      Alert.alert('Reset Failed', errorMessage);
+      authStore.clearError();
+    }
+  };
+
   const handleGoogleLogin = () => {
     // Google-linked accounts have no password. Native Google Sign-In requires
     // the SDK + Google Cloud Console setup (still TODO); until then, route
@@ -137,6 +213,128 @@ const LoginScreen = observer(() => {
             style={styles.linkContainer}
           >
             <Text style={styles.linkText}>Sign in with email code</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => {
+              setFpSent(false);
+              setFpCode('');
+              setFpNewPassword('');
+              setMode('forgot');
+            }}
+            disabled={authStore.loading}
+            style={styles.linkContainer}
+          >
+            <Text style={styles.linkText}>Forgot your password?</Text>
+          </TouchableOpacity>
+        </>
+      ) : mode === 'forgot' ? (
+        <>
+          {fpSent ? (
+            <Text style={styles.subtitle}>
+              Enter the 6-digit code we sent to your email, then choose a new
+              password.
+            </Text>
+          ) : (
+            <Text style={styles.subtitle}>
+              Enter your account email and we'll send you a one-time code to
+              reset your password.
+            </Text>
+          )}
+
+          {!fpSent ? (
+            <Text style={styles.hintText}>
+              Signed up with Google? Your account has no password — use the
+              email-code option instead.
+            </Text>
+          ) : null}
+
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            value={fpEmail}
+            onChangeText={setFpEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            editable={!authStore.loading && !fpSent}
+          />
+
+          {fpSent ? (
+            <>
+              <TextInput
+                style={styles.codeInput}
+                placeholder="000000"
+                value={fpCode}
+                onChangeText={text => setFpCode(text.replace(/\D/g, ''))}
+                keyboardType="number-pad"
+                maxLength={6}
+                editable={!authStore.loading}
+              />
+
+              <TextInput
+                style={styles.input}
+                placeholder="New password (min 8 characters)"
+                value={fpNewPassword}
+                onChangeText={setFpNewPassword}
+                secureTextEntry
+                editable={!authStore.loading}
+              />
+
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  authStore.loading && styles.buttonDisabled,
+                ]}
+                onPress={handleForgotReset}
+                disabled={
+                  authStore.loading ||
+                  fpCode.length !== 6 ||
+                  fpNewPassword.length < 8
+                }
+              >
+                {authStore.loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Reset Password</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleForgotRequest}
+                disabled={authStore.loading}
+                style={styles.linkContainer}
+              >
+                <Text style={styles.resendText}>Resend code</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.button,
+                authStore.loading && styles.buttonDisabled,
+              ]}
+              onPress={handleForgotRequest}
+              disabled={authStore.loading}
+            >
+              {authStore.loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Send Reset Code</Text>
+              )}
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            onPress={() => {
+              setMode('password');
+              setFpSent(false);
+              setFpCode('');
+              setFpNewPassword('');
+            }}
+            disabled={authStore.loading}
+            style={styles.linkContainer}
+          >
+            <Text style={styles.linkText}>Back to login</Text>
           </TouchableOpacity>
         </>
       ) : (
@@ -254,6 +452,14 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 40,
     textAlign: 'center',
+  },
+  hintText: {
+    fontSize: 13,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: -25,
+    marginBottom: 15,
+    lineHeight: 18,
   },
   input: {
     height: 50,

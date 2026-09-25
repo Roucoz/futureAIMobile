@@ -1,4 +1,4 @@
-package com.futureaimobile
+package com.tuxon.app
 
 import android.app.Application
 import com.facebook.react.PackageList

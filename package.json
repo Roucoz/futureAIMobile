@@ -7,7 +7,15 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest",
+    "target:prod": "node scripts/set-target.js prod",
+    "target:dev": "node scripts/set-target.js dev",
+    "target:local": "node scripts/set-target.js local",
+    "android:keystore": "bash scripts/generate-keystore.sh",
+    "release:android:prod": "npm run target:prod && cd android && ./gradlew bundleProdRelease",
+    "release:android:dev": "npm run target:dev && cd android && ./gradlew bundleDevRelease",
+    "release:apk:prod": "npm run target:prod && cd android && ./gradlew assembleProdRelease",
+    "release:apk:dev": "npm run target:dev && cd android && ./gradlew assembleDevRelease"
   },
   "dependencies": {
     "@ant-design/react-native": "^5.4.3",

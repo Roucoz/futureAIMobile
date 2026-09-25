@@ -131,6 +131,50 @@ export const AuthStore = types
     }),
 
     /**
+     * Send a password-reset code to the user's email ("forgot password").
+     * Passes through the API response so callers can detect Google-only
+     * accounts ({ sent: false, provider: "google" }) and show an in-app message.
+     */
+    forgotPassword: flow(function* (email: string) {
+      self.loading = true;
+      self.error = null;
+      try {
+        const result = yield authService.forgotPassword(email);
+        self.loading = false;
+        return result;
+      } catch (error: any) {
+        console.error('❌ AuthStore.forgotPassword() - ERROR:', error);
+        self.error = error.message || 'Failed to send reset code';
+        self.loading = false;
+        throw error;
+      }
+    }),
+
+    /**
+     * Verify the emailed reset code and set a new password.
+     * Does NOT log the user in — on success they return to the login screen
+     * and sign in with the new password.
+     */
+    resetPassword: flow(function* (input: {
+      email: string;
+      code: string;
+      newPassword: string;
+    }) {
+      self.loading = true;
+      self.error = null;
+      try {
+        yield authService.resetPassword(input);
+        self.loading = false;
+        return { ok: true };
+      } catch (error: any) {
+        console.error('❌ AuthStore.resetPassword() - ERROR:', error);
+        self.error = error.message || 'Failed to reset password';
+        self.loading = false;
+        throw error;
+      }
+    }),
+
+    /**
      * Verify an emailed sign-in code and log in
      */
     loginWithOtp: flow(function* (email: string, code: string) {
