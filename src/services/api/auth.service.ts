@@ -47,7 +47,7 @@ export interface Permission {
  */
 export interface AccountStatus {
   isBlocked: boolean;
-  reason: 'TRIAL_EXPIRED' | 'SUSPENDED' | 'ACTIVE';
+  reason: 'TRIAL_EXPIRED' | 'RENEWAL_OVERDUE' | 'SUSPENDED' | 'ACTIVE';
   subscriptionStatus: string;
   balance: number;
   regularBalance: number;
@@ -185,10 +185,12 @@ class AuthService {
   }
 
   /**
-   * Register device for push notifications
+   * Register device for push notifications.
+   * Endpoint is `/v1/device-tokens` (mounted in apps/api/src/app.ts); the old
+   * `/v1/notifications/register-device` path does not exist and 404s.
    */
   async registerDevice(token: string, platform: string): Promise<void> {
-    await apiClient.post('/v1/notifications/register-device', {
+    await apiClient.post('/v1/device-tokens', {
       token,
       platform,
     });

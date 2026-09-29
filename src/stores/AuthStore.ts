@@ -99,8 +99,6 @@ export const AuthStore = types
         }
         // Load account status (trial expiry / renewal / wallet balance)
         yield self.refreshAccountStatus();
-        // Load account status (trial expiry / renewal / wallet balance)
-        yield self.refreshAccountStatus();
 
         self.loading = false;
         return { success: true };

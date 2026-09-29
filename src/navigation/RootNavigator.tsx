@@ -17,6 +17,7 @@ import { env } from '../config/env';
 // Import navigators
 import AuthNavigator from './AuthNavigator';
 import AppNavigator from './AppNavigator';
+import AccountBlockedModal from '../components/common/AccountBlockedModal';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -101,6 +102,11 @@ const RootNavigator = observer(() => {
           <Stack.Screen name="Auth" component={AuthNavigator} />
         )}
       </Stack.Navigator>
+
+      {/* Blocked-account notice (trial over / renewal unpaid / suspended).
+          Mounted here so it covers every screen; it renders nothing unless the
+          account is restricted. */}
+      <AccountBlockedModal />
     </NavigationContainer>
   );
 });

@@ -13,6 +13,10 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { useAuth } from '../../stores';
+import {
+  getBlockedCopy,
+  openBillingOnWeb,
+} from '../../utils/accountStatusCopy';
 
 interface BillingBannerProps {
   style?: object;
@@ -25,6 +29,34 @@ const BillingBanner: React.FC<BillingBannerProps> = observer(({ style }) => {
   // Nothing to warn about
   if (!accountStatus) {
     return null;
+  }
+
+  // Blocked (trial over, renewal that could not be charged, suspended): the
+  // blocked modal explains it once, this banner keeps it visible on every screen
+  // after the user dismisses the modal.
+  if (accountStatus.isBlocked) {
+    const blockedCopy = getBlockedCopy(accountStatus);
+
+    return (
+      <View style={[styles.banner, styles.severeBanner, style]}>
+        <Text style={[styles.icon, styles.severeIcon]}>{blockedCopy.icon}</Text>
+        <View style={styles.content}>
+          <Text
+            style={[styles.message, styles.severeMessage]}
+            numberOfLines={3}
+          >
+            <Text style={styles.bold}>{blockedCopy.title}.</Text>{' '}
+            {blockedCopy.actionLine}
+          </Text>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.severeActionBtn]}
+            onPress={() => openBillingOnWeb(blockedCopy.cta)}
+          >
+            <Text style={styles.actionBtnText}>{blockedCopy.cta}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   }
 
   const trialMessage = accountStatus.warningMessage;
