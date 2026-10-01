@@ -1,7 +1,9 @@
 import messaging from '@react-native-firebase/messaging';
 import notifee, { AndroidImportance } from '@notifee/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, PermissionsAndroid } from 'react-native';
 import apiClient from '../api/client';
+import { STORAGE_KEYS } from '../../config/constants';
 
 /**
  * Request POST_NOTIFICATIONS permission on Android 13+ (API 33).
@@ -61,6 +63,11 @@ class NotificationService {
   private onNotificationTapHandlers: NotificationHandler[] = [];
   private sessionTerminatedCallbacks: Array<() => void> = [];
   private initialized = false;
+  /**
+   * This device's "new customer chat" alert preference. Read from AsyncStorage
+   * and mirrored to the backend so the server can skip the push entirely.
+   */
+  private notifyNewConversations = true;
 
   /**
    * Initialize push notifications: request permission, get FCM token, register with backend
@@ -72,6 +79,9 @@ class NotificationService {
     }
 
     try {
+      // Load this device's saved preference BEFORE registering so the server
+      // never sends a new-chat alert the user turned off on this phone.
+      await this.loadNotifyNewConversations();
       // Request Android 13+ notification permission (REQUIRED or notifications are silently blocked)
       await requestAndroidPermission();
 
@@ -100,6 +110,9 @@ class NotificationService {
         platform,
       });
       console.log('✅ Device registered for push notifications');
+
+      // Push this device's saved preference to the freshly registered token
+      await this.syncNotifyNewConversations();
 
       // Listen for token refresh
       this.setupTokenRefresh();
@@ -160,6 +173,77 @@ class NotificationService {
     return this.fcmToken;
   }
 
+  // ---- New-conversation alert preference (per DEVICE) ----
+
+  /**
+   * Whether THIS device alerts on new customer conversations.
+   * Defaults to true (the server default) when nothing is stored.
+   */
+  isNotifyNewConversationsEnabled(): boolean {
+    return this.notifyNewConversations;
+  }
+
+  /**
+   * Read the saved preference from this device's storage.
+   */
+  async loadNotifyNewConversations(): Promise<boolean> {
+    try {
+      const stored = await AsyncStorage.getItem(
+        STORAGE_KEYS.NOTIFY_NEW_CONVERSATIONS,
+      );
+      // Anything other than an explicit "0" keeps alerts on (first run).
+      this.notifyNewConversations = stored !== '0';
+    } catch (error) {
+      console.warn('⚠️ Failed to read notification preference:', error);
+      this.notifyNewConversations = true;
+    }
+    return this.notifyNewConversations;
+  }
+
+  /**
+   * Turn "new customer chat" alerts on/off for THIS device only.
+   * Persists locally (instant, works offline) and mirrors to the backend so the
+   * server stops sending the push while the app is closed.
+   */
+  async setNotifyNewConversations(enabled: boolean): Promise<void> {
+    this.notifyNewConversations = enabled;
+
+    try {
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.NOTIFY_NEW_CONVERSATIONS,
+        enabled ? '1' : '0',
+      );
+    } catch (error) {
+      console.warn('⚠️ Failed to save notification preference:', error);
+    }
+
+    await this.syncNotifyNewConversations();
+  }
+
+  /**
+   * Mirror the local preference to this device's backend token.
+   * Silent on failure — the local switch is the source of truth for the UI and
+   * the value is re-synced on the next `initialize()`.
+   */
+  private async syncNotifyNewConversations(): Promise<void> {
+    if (!this.fcmToken) {
+      return;
+    }
+
+    try {
+      await apiClient.patch('/v1/device-tokens/preferences', {
+        token: this.fcmToken,
+        notifyNewConversations: this.notifyNewConversations,
+      });
+      console.log(
+        '✅ Notification preference synced:',
+        this.notifyNewConversations ? 'new chats ON' : 'new chats OFF',
+      );
+    } catch (error) {
+      console.error('❌ Failed to sync notification preference:', error);
+    }
+  }
+
   // ---- Private setup methods ----
 
   private setupTokenRefresh(): void {
@@ -174,6 +258,8 @@ class NotificationService {
           platform,
         });
         console.log('✅ Refreshed token registered with backend');
+        // A new token = a new device row, so re-apply the local preference
+        await this.syncNotifyNewConversations();
       } catch (error) {
         console.error('❌ Failed to register refreshed token:', error);
       }
@@ -211,6 +297,14 @@ class NotificationService {
 
       if (rawData?.showInForeground === 'false') {
         console.log('🔇 Notification suppressed in foreground:', type);
+        return;
+      }
+
+      // This device opted out of new-chat alerts. The server already skips the
+      // push for this token, so reaching here means the preference changed on
+      // another path — still honour it.
+      if (type === 'new_conversation' && !this.notifyNewConversations) {
+        console.log('🔇 New-conversation alerts disabled on this device');
         return;
       }
 

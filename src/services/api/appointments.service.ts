@@ -48,6 +48,49 @@ export interface UpdateAppointmentDto {
   customerEmail?: string;
 }
 
+/**
+ * A team member (owner/staff) — one of the business's own people, not a
+ * customer. Their chat messages are treated as internal and they may block the
+ * calendar. Only the project owner can add or remove them.
+ */
+export interface StaffMember {
+  id: string;
+  name: string | null;
+  phoneNumber: string;
+  email: string | null;
+  channels: string[];
+  upcomingBlocks: number;
+}
+
+/** A window during which the team cannot take appointments. */
+export interface TimeOffBlock {
+  id: string;
+  contactId: string | null;
+  staffName: string;
+  staffPhone: string | null;
+  startAt: string;
+  endAt: string;
+  allDay: boolean;
+  reason: string | null;
+  source: string;
+}
+
+export interface CreateTimeOffDto {
+  contactId?: string;
+  staffName?: string;
+  startAt: string;
+  endAt: string;
+  allDay?: boolean;
+  reason?: string | null;
+}
+
+export interface ConflictingAppointment {
+  id: string;
+  customerName: string;
+  appointmentDate: string;
+  serviceName: string | null;
+}
+
 class AppointmentsService {
   /**
    * Get all appointments
@@ -245,6 +288,53 @@ class AppointmentsService {
   async getServices(): Promise<Service[]> {
     const response = await apiClient.get('/v1/admin/services');
     return response.data.services || [];
+  }
+
+  // ── Team availability ───────────────────────────────────────────────
+
+  async getStaff(): Promise<StaffMember[]> {
+    const response = await apiClient.get('/v1/admin/appointments/staff');
+    return response.data.data || [];
+  }
+
+  /**
+   * Flag an existing contact as a team member, or create-and-flag one from a
+   * name/phone/email (the API de-duplicates by phone/email).
+   */
+  async addStaff(payload: {
+    contactId?: string;
+    name?: string;
+    phoneNumber?: string;
+    email?: string;
+  }): Promise<void> {
+    await apiClient.post('/v1/admin/appointments/staff', payload);
+  }
+
+  async removeStaff(contactId: string): Promise<void> {
+    await apiClient.delete(`/v1/admin/appointments/staff/${contactId}`);
+  }
+
+  async getTimeOff(from: string, to: string): Promise<TimeOffBlock[]> {
+    const response = await apiClient.get(
+      `/v1/admin/appointments/time-off?from=${encodeURIComponent(
+        from,
+      )}&to=${encodeURIComponent(to)}`,
+    );
+    return response.data.data || [];
+  }
+
+  async createTimeOff(
+    data: CreateTimeOffDto,
+  ): Promise<ConflictingAppointment[]> {
+    const response = await apiClient.post(
+      '/v1/admin/appointments/time-off',
+      data,
+    );
+    return response.data.data?.conflictingAppointments || [];
+  }
+
+  async deleteTimeOff(id: string): Promise<void> {
+    await apiClient.delete(`/v1/admin/appointments/time-off/${id}`);
   }
 }
 

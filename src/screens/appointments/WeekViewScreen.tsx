@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { useAppointment } from '../../stores';
+import { TimeOffBlock } from '../../services/api/appointments.service';
 import {
   format,
   startOfWeek,
@@ -21,12 +22,16 @@ import {
   addWeeks,
   subWeeks,
   isSameDay,
+  startOfDay,
+  endOfDay,
   parseISO,
 } from 'date-fns';
 
 interface WeekViewScreenProps {
   onAppointmentPress: (appointment: any) => void;
   onAddAppointment: (date?: Date) => void;
+  /** Team-member time off — shown as an orange note on each affected day. */
+  timeOffBlocks?: TimeOffBlock[];
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -38,7 +43,11 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const WeekViewScreen = observer(
-  ({ onAppointmentPress, onAddAppointment }: WeekViewScreenProps) => {
+  ({
+    onAppointmentPress,
+    onAddAppointment,
+    timeOffBlocks,
+  }: WeekViewScreenProps) => {
     const appointmentStore = useAppointment();
     const [currentWeekStart, setCurrentWeekStart] = useState(
       startOfWeek(new Date(), { weekStartsOn: 0 }),
@@ -87,8 +96,28 @@ const WeekViewScreen = observer(
       );
     };
 
+    /** Team-unavailable windows that touch this day. */
+    const getTimeOffForDay = (date: Date) =>
+      (timeOffBlocks || []).filter(block => {
+        const start = new Date(block.startAt);
+        const end = new Date(block.endAt);
+        return start < endOfDay(date) && end > startOfDay(date);
+      });
+
+    /** "10:00–12:00" / "All day" — who is out and when. */
+    const describeBlock = (block: TimeOffBlock): string => {
+      const start = new Date(block.startAt);
+      const end = new Date(block.endAt);
+      const hours =
+        block.allDay || (start.getHours() === 0 && end.getHours() === 0)
+          ? 'All day'
+          : `${format(start, 'HH:mm')}–${format(end, 'HH:mm')}`;
+      return `${hours} · ${block.staffName}`;
+    };
+
     const renderDayColumn = (date: Date) => {
       const appointments = getAppointmentsForDay(date);
+      const dayTimeOff = getTimeOffForDay(date);
       const isToday = isSameDay(date, new Date());
 
       return (
@@ -108,6 +137,15 @@ const WeekViewScreen = observer(
             style={styles.dayContent}
             showsVerticalScrollIndicator={false}
           >
+            {/* Team unavailable — pinned at the top of the day it affects */}
+            {dayTimeOff.map(block => (
+              <View key={block.id} style={styles.timeOffBar}>
+                <Text style={styles.timeOffBarText} numberOfLines={2}>
+                  🚫 {describeBlock(block)}
+                </Text>
+              </View>
+            ))}
+
             {appointments.length === 0 ? (
               <TouchableOpacity
                 style={styles.emptyDay}
@@ -196,6 +234,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f9',
+  },
+  timeOffBar: {
+    backgroundColor: '#fff7e6',
+    borderWidth: 1,
+    borderColor: '#ffd591',
+    borderRadius: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    marginBottom: 6,
+  },
+  timeOffBarText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#d46b08',
   },
   navigation: {
     flexDirection: 'row',

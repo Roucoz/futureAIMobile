@@ -3,11 +3,12 @@
  * User profile with account information and logout
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  Switch,
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
@@ -16,14 +17,45 @@ import { observer } from 'mobx-react-lite';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../../stores';
+import { env } from '../../config/env';
 import { resolveImageUrl } from '../../utils/imageUrl';
 import ScreenBackground from '../../components/common/ScreenBackground';
 import { ZoomableImage } from '../../components/common/ZoomableImage';
+import { notificationService } from '../../services/notifications/NotificationService';
 import { format } from 'date-fns';
 
 const ProfileScreen = observer(() => {
   const authStore = useAuth();
   const navigation = useNavigation();
+
+  // "New customer chat" alerts are a per-DEVICE setting: the same account can
+  // alert on a phone and stay quiet on a shared tablet.
+  const [alertsNewChats, setAlertsNewChats] = useState(
+    notificationService.isNotifyNewConversationsEnabled(),
+  );
+  const [savingPreference, setSavingPreference] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    void notificationService.loadNotifyNewConversations().then(enabled => {
+      if (mounted) {
+        setAlertsNewChats(enabled);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleToggleNewChatAlerts = async (enabled: boolean) => {
+    setAlertsNewChats(enabled);
+    setSavingPreference(true);
+    try {
+      await notificationService.setNotifyNewConversations(enabled);
+    } finally {
+      setSavingPreference(false);
+    }
+  };
 
   const InfoRow = ({
     label,
@@ -141,6 +173,32 @@ const ProfileScreen = observer(() => {
               </View>
             </View>
 
+            {/* Notification preferences (per device) */}
+            <View style={styles.card}>
+              <View style={styles.prefRow}>
+                <Icon
+                  name="notifications-outline"
+                  size={20}
+                  color="#1890ff"
+                  style={styles.icon}
+                />
+                <View style={styles.prefText}>
+                  <Text style={styles.prefTitle}>New customer chat alerts</Text>
+                  <Text style={styles.prefHint}>
+                    Get notified on this device when a customer starts a new chat
+                    on your website — even when the AI answers it.
+                  </Text>
+                </View>
+                <Switch
+                  value={alertsNewChats}
+                  onValueChange={handleToggleNewChatAlerts}
+                  disabled={savingPreference}
+                  trackColor={{ false: '#d9d9d9', true: '#91d5ff' }}
+                  thumbColor={alertsNewChats ? '#1890ff' : '#f4f3f4'}
+                />
+              </View>
+            </View>
+
             {/* Actions */}
             <View style={styles.actions}>
               <TouchableOpacity
@@ -158,8 +216,25 @@ const ProfileScreen = observer(() => {
               </TouchableOpacity>
             </View>
 
-            {/* App Version */}
+            {/* App Version + environment.
+                Environment/API host are compiled in at build time (see
+                src/config/env.target.ts), so this line is the on-device proof of
+                which backend this build talks to — useful when TestFlight holds
+                both a prod and a dev build. */}
             <Text style={styles.version}>Tuxon Mobile v1.0.0</Text>
+            <Text
+              style={[
+                styles.environment,
+                env.appTarget !== 'prod' && styles.environmentNonProd,
+              ]}
+            >
+              {env.appTarget === 'prod'
+                ? 'Production'
+                : env.appTarget === 'dev'
+                ? 'Development'
+                : 'Local'}{' '}
+              · {env.API_BASE_URL.replace(/^https?:\/\//, '')}
+            </Text>
           </ScrollView>
         </View>
       </ScreenBackground>
@@ -270,6 +345,26 @@ const styles = StyleSheet.create({
   infoContainer: {
     padding: 20,
   },
+  prefRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+  },
+  prefText: {
+    flex: 1,
+    marginRight: 12,
+  },
+  prefTitle: {
+    fontSize: 16,
+    color: '#1a1a1a',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  prefHint: {
+    fontSize: 13,
+    color: '#8c8c8c',
+    lineHeight: 18,
+  },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -324,7 +419,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#bfbfbf',
     marginTop: 16,
+    marginBottom: 4,
+  },
+  environment: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#bfbfbf',
     marginBottom: 32,
+  },
+  // Non-production builds get a visible amber tint so nobody mistakes a dev
+  // build (dev-api + dev database) for the production app during testing.
+  environmentNonProd: {
+    color: '#d48806',
+    fontWeight: '600',
   },
 });
 

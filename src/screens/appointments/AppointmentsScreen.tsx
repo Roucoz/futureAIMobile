@@ -23,7 +23,11 @@ import { observer } from 'mobx-react-lite';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppointment, useModule, useAuth } from '../../stores';
-import { format } from 'date-fns';
+import StaffAvailabilityModal from './StaffAvailabilityModal';
+import appointmentsService, {
+  TimeOffBlock,
+} from '../../services/api/appointments.service';
+import { format, isToday, isTomorrow } from 'date-fns';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AppointmentFormModal from './AppointmentFormModal';
 import AppointmentDetailsModal from './AppointmentDetailsModal';
@@ -71,6 +75,25 @@ const STATUS_FILTERS = [
   { key: 'NO_SHOW', label: 'No Show', iconName: 'alert-circle' },
 ];
 
+/**
+ * "Today · 10:00 – 12:00 · Roucoz" — a compact label for a team-unavailable
+ * window, used by the orange banner above the list.
+ */
+const formatTimeOffWindow = (block: TimeOffBlock): string => {
+  const start = new Date(block.startAt);
+  const end = new Date(block.endAt);
+  const day = isToday(start)
+    ? 'Today'
+    : isTomorrow(start)
+    ? 'Tomorrow'
+    : format(start, 'EEE d MMM');
+  const hours =
+    block.allDay || (start.getHours() === 0 && end.getHours() === 0)
+      ? 'all day'
+      : `${format(start, 'HH:mm')} – ${format(end, 'HH:mm')}`;
+  return `${day} · ${hours} · ${block.staffName}`;
+};
+
 const AppointmentsScreen = observer(() => {
   const appointmentStore = useAppointment();
   const moduleStore = useModule();
@@ -86,6 +109,28 @@ const AppointmentsScreen = observer(() => {
   const [tempToDate, setTempToDate] = useState<Date>(new Date());
   const [activePicker, setActivePicker] = useState<'from' | 'to' | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showStaffModal, setShowStaffModal] = useState(false);
+  // Team-member time off. Shown as an orange banner above the list and inside
+  // the week view, so the owner SEES reserved hours without opening the Team
+  // modal first.
+  const [timeOff, setTimeOff] = useState<TimeOffBlock[]>([]);
+
+  const loadTimeOff = useCallback(async () => {
+    if (!authStore.token) return;
+    try {
+      const now = new Date();
+      const to = new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000);
+      setTimeOff(
+        await appointmentsService.getTimeOff(
+          now.toISOString(),
+          to.toISOString(),
+        ),
+      );
+    } catch (error) {
+      // Non-fatal: appointments still list fine without the banner.
+      console.error('Failed to load team unavailability:', error);
+    }
+  }, [authStore.token]);
 
   const loadAppointments = useCallback(async () => {
     try {
@@ -126,8 +171,9 @@ const AppointmentsScreen = observer(() => {
           .fetchAppointments()
           .then(() => setRefreshKey(k => k + 1))
           .catch(err => console.error('Failed to reload:', err));
+        void loadTimeOff();
       });
-    }, [appointmentStore, moduleStore]),
+    }, [appointmentStore, moduleStore, loadTimeOff]),
   );
 
   useEffect(() => {
@@ -170,6 +216,7 @@ const AppointmentsScreen = observer(() => {
         await appointmentStore.fetchAppointments();
         setRefreshKey(k => k + 1);
       }
+      await loadTimeOff();
     } catch (err) {
       console.error('Failed to reload:', err);
     } finally {
@@ -399,6 +446,15 @@ const AppointmentsScreen = observer(() => {
               </Text>
             </View>
 
+            {/* Team availability + time off */}
+            <TouchableOpacity
+              style={styles.teamButton}
+              onPress={() => setShowStaffModal(true)}
+            >
+              <Icon name="people-outline" size={20} color="#1890ff" />
+              <Text style={styles.teamButtonText}>Team</Text>
+            </TouchableOpacity>
+
             {/* View Toggle */}
             <View style={styles.viewToggle}>
               <TouchableOpacity
@@ -555,19 +611,55 @@ const AppointmentsScreen = observer(() => {
               renderItem={renderAppointmentCard}
               ListEmptyComponent={renderEmpty}
               ListHeaderComponent={
-                <View style={styles.sectionHeader}>
-                  <Icon
-                    name={appointmentStore.dateRangeFrom ? 'time' : 'calendar'}
-                    size={18}
-                    color={
-                      appointmentStore.dateRangeFrom ? '#595959' : '#1890ff'
-                    }
-                  />
-                  <Text style={styles.sectionTitle}>
-                    {appointmentStore.dateRangeFrom
-                      ? 'Appointments History'
-                      : 'My Next Appointments'}
-                  </Text>
+                <View>
+                  <View style={styles.sectionHeader}>
+                    <Icon
+                      name={
+                        appointmentStore.dateRangeFrom ? 'time' : 'calendar'
+                      }
+                      size={18}
+                      color={
+                        appointmentStore.dateRangeFrom ? '#595959' : '#1890ff'
+                      }
+                    />
+                    <Text style={styles.sectionTitle}>
+                      {appointmentStore.dateRangeFrom
+                        ? 'Appointments History'
+                        : 'My Next Appointments'}
+                    </Text>
+                  </View>
+
+                  {/* Team unavailable — reserved hours. Without this the only
+                      hint was the Team button, so nobody knew time was blocked. */}
+                  {!appointmentStore.dateRangeFrom && timeOff.length > 0 && (
+                    <TouchableOpacity
+                      style={styles.timeOffBanner}
+                      activeOpacity={0.8}
+                      onPress={() => setShowStaffModal(true)}
+                    >
+                      <Icon name="alert-circle" size={18} color="#d46b08" />
+                      <View style={styles.timeOffBannerBody}>
+                        <Text style={styles.timeOffBannerTitle}>
+                          Team unavailable
+                        </Text>
+                        {timeOff.slice(0, 3).map(block => (
+                          <Text
+                            key={block.id}
+                            style={styles.timeOffBannerLine}
+                            numberOfLines={1}
+                          >
+                            {formatTimeOffWindow(block)}
+                          </Text>
+                        ))}
+                        {timeOff.length > 3 && (
+                          <Text style={styles.timeOffBannerMore}>
+                            +{timeOff.length - 3} more
+                          </Text>
+                        )}
+                      </View>
+                      <Icon name="chevron-forward" size={18} color="#d46b08" />
+                    </TouchableOpacity>
+                  )}
                 </View>
               }
               contentContainerStyle={styles.listContent}
@@ -583,6 +675,7 @@ const AppointmentsScreen = observer(() => {
             <WeekViewScreen
               onAppointmentPress={handleViewAppointment}
               onAddAppointment={handleCreateAppointmentForDate}
+              timeOffBlocks={timeOff}
             />
           )}
 
@@ -821,6 +914,16 @@ const AppointmentsScreen = observer(() => {
             onEdit={handleEditAppointment}
             onSuccess={handleFormSuccess}
           />
+
+          {/* Team availability — team members + their time off */}
+          <StaffAvailabilityModal
+            visible={showStaffModal}
+            onClose={() => {
+              setShowStaffModal(false);
+              void loadAppointments();
+              void loadTimeOff();
+            }}
+          />
         </>
       )}
     </ScreenBackground>
@@ -844,6 +947,21 @@ const styles = StyleSheet.create({
   },
   headerLeft: {
     flex: 1,
+  },
+  teamButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#f0f7ff',
+    marginRight: 8,
+  },
+  teamButtonText: {
+    color: '#1890ff',
+    marginLeft: 4,
+    fontWeight: '600',
+    fontSize: 14,
   },
   title: {
     fontSize: 28,
@@ -932,6 +1050,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#1a1a1a',
+  },
+  timeOffBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#fff7e6',
+    borderWidth: 1,
+    borderColor: '#ffd591',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  timeOffBannerBody: {
+    flex: 1,
+  },
+  timeOffBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#d46b08',
+  },
+  timeOffBannerLine: {
+    fontSize: 12,
+    color: '#8c5a12',
+    marginTop: 2,
+  },
+  timeOffBannerMore: {
+    fontSize: 12,
+    color: '#ad6800',
+    marginTop: 2,
+    fontWeight: '600',
   },
   card: {
     backgroundColor: '#fff',

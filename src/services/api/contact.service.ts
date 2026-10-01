@@ -13,6 +13,8 @@ export interface Contact {
   customerType: 'NEW' | 'REGULAR' | 'VIP' | 'BLOCKED' | 'INACTIVE';
   isVip: boolean;
   isBlocked: boolean;
+  /** One of the business's own people (owner/team member), not a customer. */
+  isStaff?: boolean;
   phoneVerified: boolean;
   preferredLanguage: string | null;
   detectedLanguages: string[];

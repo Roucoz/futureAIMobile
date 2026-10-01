@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -22,7 +23,7 @@ import { Contact } from '../../services/api/contact.service';
 import contactService from '../../services/api/contact.service';
 import { ordersService } from '../../services/api/orders.service';
 import { appointmentsService } from '../../services/api/appointments.service';
-import { useModule } from '../../stores';
+import { useModule, useAuth } from '../../stores';
 
 interface RouteParams {
   contact: Contact;
@@ -38,7 +39,10 @@ const ContactDetailScreen = () => {
   const route = useRoute();
   const { contact } = route.params as RouteParams;
   const moduleStore = useModule();
+  const authStore = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isStaff, setIsStaff] = useState(!!contact.isStaff);
+  const [staffSaving, setStaffSaving] = useState(false);
 
   // Make sure module statuses are loaded so module-gated buttons render
   // correctly (hidden when the corresponding module is disabled).
@@ -251,6 +255,19 @@ const ContactDetailScreen = () => {
     });
   };
 
+  const handleToggleStaff = async (next: boolean) => {
+    setStaffSaving(true);
+    try {
+      await contactService.updateContact(contact.id, { isStaff: next });
+      setIsStaff(next);
+    } catch (error) {
+      console.error('Failed to update team-member flag:', error);
+      Alert.alert('Error', 'Failed to update team member status');
+    } finally {
+      setStaffSaving(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView style={styles.container}>
@@ -279,6 +296,27 @@ const ContactDetailScreen = () => {
             </View>
           )}
         </View>
+
+        {/* Team member (owner/staff) — owner only. Marking a contact as one of
+            the business's own people makes the assistant treat their messages as
+            internal (short replies, no sales flow) and lets them block time off
+            by chatting. */}
+        {authStore.isOwner && (
+          <View style={styles.staffCard}>
+            <View style={styles.staffTextBlock}>
+              <Text style={styles.staffTitle}>Team member</Text>
+              <Text style={styles.staffHint}>
+                Your own owner/staff, not a customer. They can block time off by
+                messaging you and get short internal replies.
+              </Text>
+            </View>
+            <Switch
+              value={isStaff}
+              disabled={staffSaving}
+              onValueChange={handleToggleStaff}
+            />
+          </View>
+        )}
 
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
@@ -580,6 +618,32 @@ const styles = StyleSheet.create({
     marginTop: 12,
     borderWidth: 1,
     borderColor: '#ffd700',
+  },
+  staffCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+  },
+  staffTextBlock: {
+    flex: 1,
+    marginRight: 12,
+  },
+  staffTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  staffHint: {
+    fontSize: 12,
+    color: '#8c8c8c',
+    marginTop: 2,
   },
   vipText: {
     fontSize: 14,

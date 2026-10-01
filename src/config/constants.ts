@@ -9,6 +9,13 @@ export const STORAGE_KEYS = {
   USER_DATA: 'futureai.mobile.user.data',
   THEME: 'futureai.mobile.theme',
   LANGUAGE: 'futureai.mobile.language',
+  /**
+   * Per-DEVICE push preference: alert this phone when a new customer
+   * conversation starts ("1" = on, "0" = off). Stored locally so the switch in
+   * Profile is instant/offline-safe, and mirrored to the backend device row so
+   * the server can skip the push while the app is closed.
+   */
+  NOTIFY_NEW_CONVERSATIONS: 'futureai.mobile.notify.newConversations',
 };
 
 export const NOTIFICATION_CHANNELS = {
