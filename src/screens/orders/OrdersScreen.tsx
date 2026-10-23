@@ -28,7 +28,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { format } from 'date-fns';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -38,6 +38,7 @@ import ModuleNotEnabled from '../../components/common/ModuleNotEnabled';
 import PermissionDenied from '../../components/common/PermissionDenied';
 import { useModule, useAuth } from '../../stores';
 import { isPermissionDeniedError } from '../../utils/errors';
+import { useContactProfile } from '../../hooks/useContactProfile';
 import {
   ordersService,
   Order,
@@ -106,6 +107,8 @@ const ALL_STATUSES: OrderStatus[] = [
 const OrdersScreen = observer(() => {
   const moduleStore = useModule();
   const authStore = useAuth();
+  const navigation = useNavigation();
+  const { openContact, contactProfileModal } = useContactProfile();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -283,7 +286,22 @@ const OrdersScreen = observer(() => {
             <Text style={styles.dateMonth}>{format(createdAt, 'MMM')}</Text>
           </View>
           <View style={styles.cardInfo}>
-            <Text style={styles.customerName}>{item.customerName}</Text>
+            <View style={styles.customerRow}>
+              <Text style={styles.customerName} numberOfLines={1}>
+                {item.customerName}
+              </Text>
+              {/* Opens the customer file (profile screen). */}
+              <TouchableOpacity
+                style={styles.editCustomerButton}
+                onPress={event => {
+                  event.stopPropagation();
+                  void openContact(item.customerPhone, item.customerName);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Icon name="create-outline" size={16} color="#1890ff" />
+              </TouchableOpacity>
+            </View>
             <Text style={styles.serviceName}>
               {item.items.length} item(s) ·{' '}
               {item.deliveryMethod === 'pickup' ? 'Pickup' : 'Delivery'}
@@ -814,6 +832,9 @@ const OrdersScreen = observer(() => {
           </View>
         </ScreenBackground>
       )}
+
+      {/* Customer profile opened from an order card; closing it returns here. */}
+      {contactProfileModal}
     </SafeAreaView>
   );
 });
@@ -913,6 +934,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#1a1a1a',
+    marginBottom: 4,
+    flexShrink: 1,
+  },
+  customerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  editCustomerButton: {
+    padding: 2,
     marginBottom: 4,
   },
   serviceName: { fontSize: 14, color: '#595959', marginBottom: 2 },

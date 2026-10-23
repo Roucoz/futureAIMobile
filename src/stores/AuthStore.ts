@@ -21,6 +21,10 @@ export const UserModel = types
     firstName: types.string,
     lastName: types.string,
     projectId: types.string,
+    // Display name of the workspace (Project.name) — shown in the profile and
+    // on the dashboard so an agent working across workspaces sees which one
+    // they are in.
+    projectName: types.optional(types.string, ''),
     role: types.string,
     twoFactorEnabled: types.boolean,
     avatarUrl: types.maybeNull(types.string),
@@ -87,6 +91,7 @@ export const AuthStore = types
             firstName: response.user.firstName,
             lastName: response.user.lastName,
             projectId: response.project.id,
+            projectName: response.project.name || '',
             role: response.role,
             twoFactorEnabled: response.user.twoFactorEnabled,
             avatarUrl: response.user.avatarUrl || null,
@@ -198,6 +203,7 @@ export const AuthStore = types
             firstName: response.user.firstName,
             lastName: response.user.lastName,
             projectId: response.project.id,
+            projectName: response.project.name || '',
             role: response.role,
             twoFactorEnabled: response.user.twoFactorEnabled,
             avatarUrl: response.user.avatarUrl || null,
@@ -251,6 +257,7 @@ export const AuthStore = types
             firstName: response.user.firstName,
             lastName: response.user.lastName,
             projectId: response.project.id,
+            projectName: response.project.name || '',
             role: response.role,
             twoFactorEnabled: response.user.twoFactorEnabled,
             avatarUrl: response.user.avatarUrl || null,
@@ -301,6 +308,7 @@ export const AuthStore = types
             firstName: response.user.firstName,
             lastName: response.user.lastName,
             projectId: response.project.id,
+            projectName: response.project.name || '',
             role: response.role,
             twoFactorEnabled: response.user.twoFactorEnabled,
             avatarUrl: response.user.avatarUrl || null,
@@ -394,6 +402,10 @@ export const AuthStore = types
     /**
      * Get project ID
      */
+    get projectName() {
+      return self.user?.projectName || '';
+    },
+
     get projectId() {
       return self.user?.projectId || '';
     },

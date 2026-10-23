@@ -21,6 +21,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTickets, useModule, useAuth } from '../../stores';
 import { websocketService } from '../../services/websocket/WebSocketService';
+import { useContactProfile } from '../../hooks/useContactProfile';
 import ScreenBackground from '../../components/common/ScreenBackground';
 import BillingBanner from '../../components/common/BillingBanner';
 import ModuleNotEnabled from '../../components/common/ModuleNotEnabled';
@@ -51,6 +52,7 @@ const TicketListScreen = observer(() => {
   const moduleStore = useModule();
   const authStore = useAuth();
   const navigation = useNavigation<any>();
+  const { openContact, contactProfileModal } = useContactProfile();
 
   // Fetch on mount & tab focus (skips when Ticketing module is disabled)
   useFocusEffect(
@@ -192,7 +194,14 @@ const TicketListScreen = observer(() => {
             )}
 
             {item.customerName && (
-              <View style={styles.assigneeTag}>
+              <TouchableOpacity
+                style={styles.assigneeTag}
+                onPress={event => {
+                  event.stopPropagation();
+                  void openContact(item.customerPhone, item.customerName);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
                 <Icon
                   name="people"
                   size={12}
@@ -202,7 +211,13 @@ const TicketListScreen = observer(() => {
                 <Text style={styles.assigneeLabel} numberOfLines={1}>
                   {item.customerName}
                 </Text>
-              </View>
+                <Icon
+                  name="create-outline"
+                  size={12}
+                  color="#1890ff"
+                  style={{ marginLeft: 4 }}
+                />
+              </TouchableOpacity>
             )}
           </View>
 
@@ -313,6 +328,9 @@ const TicketListScreen = observer(() => {
           </View>
         </ScreenBackground>
       )}
+
+      {/* Customer profile opened from a ticket card; closing it returns here. */}
+      {contactProfileModal}
     </SafeAreaView>
   );
 });

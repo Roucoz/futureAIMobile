@@ -24,6 +24,8 @@ import { ContactsStackParamList } from '../../navigation/types';
 import ScreenBackground from '../../components/common/ScreenBackground';
 import BillingBanner from '../../components/common/BillingBanner';
 import { useModule } from '../../stores';
+import { useWhatsAppCalling } from '../../hooks/useWhatsAppCalling';
+import callManager from '../../services/calls/callManager';
 import contactService, {
   Contact,
   GetContactsParams,
@@ -39,6 +41,9 @@ type NavigationProp = StackNavigationProp<
 const ContactsScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const moduleStore = useModule();
+  // Voice calling needs the WhatsApp module plus the workspace switch; when it
+  // is off no call button is rendered at all.
+  const callingEnabled = useWhatsAppCalling();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -200,6 +205,29 @@ const ContactsScreen = () => {
       phoneNumber: contact.phoneNumber,
       contactName: contact.name || contact.phoneNumber,
     });
+  };
+
+  /**
+   * WhatsApp call straight from the list.
+   *
+   * Same path as the customer file: the phone builds the SDP offer and the API
+   * relays it to Meta. The customer must have granted call permission — when
+   * they have not, the API sends a permission request and says so here.
+   */
+  const handleWhatsAppCall = async (contact: Contact) => {
+    const result = await callManager.startOutbound({
+      phone: (contact.phoneNumber || '').replace(/[^\d+]/g, ''),
+      name: contact.name,
+    });
+
+    if (!result.ok) {
+      Alert.alert(
+        result.requiresPermission
+          ? 'Call permission needed'
+          : 'Cannot start the call',
+        result.message,
+      );
+    }
   };
 
   // Send Instagram Direct message to contact
@@ -392,6 +420,29 @@ const ContactsScreen = () => {
               <Text style={styles.actionButtonText}>Chat</Text>
             </TouchableOpacity>
           )}
+          {/* WhatsApp call — the customer must be verified (a real, complete
+              number) and the workspace must have voice calling switched on. */}
+          {item.phoneVerified &&
+            callingEnabled &&
+            /^\+?\d{8,15}$/.test(
+              (item.phoneNumber || '').replace(/[^\d+]/g, ''),
+            ) && (
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={e => {
+                  e.stopPropagation();
+                  void handleWhatsAppCall(item);
+                }}
+              >
+                <Icon
+                  name="logo-whatsapp"
+                  size={16}
+                  color="#25D366"
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={styles.actionButtonText}>Call</Text>
+              </TouchableOpacity>
+            )}
           {/* Only show Send SMS when the phone number is verified */}
           {item.phoneVerified && (
             <TouchableOpacity
@@ -815,10 +866,12 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   actionButton: {
     flex: 1,
+    minWidth: 96,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

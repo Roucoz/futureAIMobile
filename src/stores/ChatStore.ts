@@ -130,6 +130,19 @@ export const ChatStore = types
     aiTypingConversationIds: types.array(types.string),
     visitorTypingConversationIds: types.array(types.string),
 
+    // Per-filter totals from GET /v1/admin/chats/counts. The list endpoint only
+    // returns one status, so without these the inactive tabs read 0.
+    inboxCounts: types.maybeNull(
+      types.frozen<{
+        open?: number;
+        closed?: number;
+        mine?: number;
+        unassigned?: number;
+        unread?: number;
+        all?: number;
+      }>(),
+    ),
+
     error: types.maybeNull(types.string),
   })
   .views(self => ({
@@ -198,6 +211,20 @@ export const ChatStore = types
         console.error('❌ ChatStore.loadConversations() - Error:', error);
       } finally {
         self.isLoading = false;
+      }
+    });
+
+    /**
+     * Refresh the tab counters. Cheap, and safe to call on focus, on every
+     * realtime event and after claim/close — failures are ignored because the
+     * badges are decoration and must never blank the list.
+     */
+    const loadInboxCounts = flow(function* () {
+      try {
+        const counts = yield chatService.getInboxCounts();
+        self.inboxCounts = counts as any;
+      } catch (error) {
+        console.error('❌ ChatStore.loadInboxCounts() - Error:', error);
       }
     });
 
@@ -501,6 +528,7 @@ export const ChatStore = types
     return {
       loadConversations,
       loadConversationDetail,
+      loadInboxCounts,
       sendReply,
       updateConversationMode,
       claimConversation,

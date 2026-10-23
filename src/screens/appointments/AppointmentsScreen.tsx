@@ -20,7 +20,7 @@ import {
   AppStateStatus,
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppointment, useModule, useAuth } from '../../stores';
 import StaffAvailabilityModal from './StaffAvailabilityModal';
@@ -37,6 +37,7 @@ import BillingBanner from '../../components/common/BillingBanner';
 import ModuleNotEnabled from '../../components/common/ModuleNotEnabled';
 import PermissionDenied from '../../components/common/PermissionDenied';
 import { websocketService } from '../../services/websocket/WebSocketService';
+import { useContactProfile } from '../../hooks/useContactProfile';
 
 // Status colors
 const STATUS_COLORS: Record<string, string> = {
@@ -98,6 +99,8 @@ const AppointmentsScreen = observer(() => {
   const appointmentStore = useAppointment();
   const moduleStore = useModule();
   const authStore = useAuth();
+  const navigation = useNavigation();
+  const { openContact, contactProfileModal } = useContactProfile();
   const [refreshing, setRefreshing] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -284,7 +287,23 @@ const AppointmentsScreen = observer(() => {
             </Text>
           </View>
           <View style={styles.cardInfo}>
-            <Text style={styles.customerName}>{item.customerName}</Text>
+            <View style={styles.customerRow}>
+              <Text style={styles.customerName} numberOfLines={1}>
+                {item.customerName}
+              </Text>
+              {/* Opens the customer file (profile screen) without leaving the
+                  appointment flow. */}
+              <TouchableOpacity
+                style={styles.editCustomerButton}
+                onPress={event => {
+                  event.stopPropagation();
+                  void openContact(item.customerPhone, item.customerName);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Icon name="create-outline" size={16} color="#1890ff" />
+              </TouchableOpacity>
+            </View>
             <Text style={styles.serviceName}>{item.service.name}</Text>
             <Text style={styles.time}>
               {format(appointmentDate, 'h:mm a')}
@@ -924,6 +943,10 @@ const AppointmentsScreen = observer(() => {
               void loadTimeOff();
             }}
           />
+
+          {/* Customer profile opened from an appointment card; closing it
+              returns to this list. */}
+          {contactProfileModal}
         </>
       )}
     </ScreenBackground>
@@ -1124,6 +1147,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#1a1a1a',
+    marginBottom: 4,
+    flexShrink: 1,
+  },
+  customerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  editCustomerButton: {
+    padding: 2,
     marginBottom: 4,
   },
   serviceName: {

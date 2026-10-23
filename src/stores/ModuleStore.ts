@@ -25,6 +25,9 @@ export const ModuleStore = types
         orders: types.optional(types.boolean, false),
         exitIntent: types.optional(types.boolean, false),
         ticketing: types.optional(types.boolean, false),
+        // Sales pipeline (leads). Used to decide whether "Create lead" is
+        // offered in the chat actions.
+        leads: types.optional(types.boolean, false),
         isLoading: types.optional(types.boolean, false),
         isLoaded: types.optional(types.boolean, false),
     })
@@ -51,6 +54,7 @@ export const ModuleStore = types
             self.orders = false;
             self.exitIntent = false;
             self.ticketing = false;
+            self.leads = false;
             self.isLoaded = false;
 
             try {
@@ -72,6 +76,7 @@ export const ModuleStore = types
                 self.orders = enabled.has('MODULE_ORDERS');
                 self.exitIntent = enabled.has('MODULE_EXIT_INTENT');
                 self.ticketing = enabled.has('MODULE_TICKETING');
+                self.leads = enabled.has('MODULE_LEADS');
                 self.isLoaded = true;
             } catch {
                 // Keep defaults (false) if the fetch fails — modules will be retried

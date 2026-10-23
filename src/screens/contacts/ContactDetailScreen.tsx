@@ -24,6 +24,8 @@ import contactService from '../../services/api/contact.service';
 import { ordersService } from '../../services/api/orders.service';
 import { appointmentsService } from '../../services/api/appointments.service';
 import { useModule, useAuth } from '../../stores';
+import { useWhatsAppCalling } from '../../hooks/useWhatsAppCalling';
+import callManager from '../../services/calls/callManager';
 
 interface RouteParams {
   contact: Contact;
@@ -34,15 +36,52 @@ type NavigationProp = StackNavigationProp<
   'ContactDetail'
 >;
 
-const ContactDetailScreen = () => {
+type Props = {
+  /**
+   * Supplied when the profile is shown in the modal (see `useContactProfile`).
+   * Omitted when the screen is used inside the Contacts stack, where the same
+   * record arrives as a route param.
+   */
+  contact?: Contact;
+  /** Present only in modal mode: shows a Close button and no stack header. */
+  onClose?: () => void;
+};
+
+const ContactDetailScreen = ({ contact: contactProp, onClose }: Props = {}) => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
-  const { contact } = route.params as RouteParams;
+  const routeContact = (route.params as RouteParams | undefined)?.contact;
+  const contact = (contactProp ?? routeContact) as Contact;
   const moduleStore = useModule();
   const authStore = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [isStaff, setIsStaff] = useState(!!contact.isStaff);
+  const [isStaff, setIsStaff] = useState(!!contact?.isStaff);
   const [staffSaving, setStaffSaving] = useState(false);
+
+  /**
+   * Leaves this screen before navigating.
+   *
+   * In modal mode the profile sits above the whole app, so opening a chat or a
+   * history screen underneath it would leave the modal covering the result — the
+   * modal is dismissed first, then the destination opens.
+   */
+  const navigateAway = (action: () => void) => {
+    if (!onClose) {
+      action();
+      return;
+    }
+    onClose();
+    setTimeout(action, 60);
+  };
+
+  /**
+   * Screens that live in the Contacts stack are opened through the tab
+   * navigator, so they also work when this profile is a modal on another tab.
+   */
+  const openContactsScreen = (screen: string, params?: object) =>
+    navigateAway(() =>
+      (navigation as any).navigate('ContactsStack', { screen, params }),
+    );
 
   // Make sure module statuses are loaded so module-gated buttons render
   // correctly (hidden when the corresponding module is disabled).
@@ -64,6 +103,42 @@ const ContactDetailScreen = () => {
     contact.channels.includes('WHATSAPP') ||
     contact.channels.includes('TELEGRAM');
 
+  // Calling goes through WhatsApp, exactly like the web dashboard, so it is
+  // only offered for a verified number. Widget visitors keep a synthetic `v_…`
+  // id in the phone field and can never be called.
+  const callingEnabled = useWhatsAppCalling();
+  const callableNumber = (contact.phoneNumber || '').replace(/[^\d+]/g, '');
+  const canWhatsAppCall =
+    contact.phoneVerified &&
+    callingEnabled &&
+    /^\+?\d{8,15}$/.test(callableNumber);
+
+  const smsEnabled = moduleStore.isLoaded && moduleStore.sms;
+  const ticketingEnabled = moduleStore.isLoaded && moduleStore.ticketing;
+
+  /**
+   * Places a WhatsApp call to the customer the same way the web dashboard does:
+   * the phone builds the SDP offer, the API relays it to Meta, and the answer
+   * completes the audio path inside `callManager`.
+   */
+  const handleCallCustomer = async () => {
+    if (!canWhatsAppCall) return;
+
+    const result = await callManager.startOutbound({
+      phone: callableNumber,
+      name: contact.name,
+    });
+
+    if (!result.ok) {
+      Alert.alert(
+        result.requiresPermission
+          ? 'Call permission needed'
+          : 'Cannot start the call',
+        result.message,
+      );
+    }
+  };
+
   // Start new conversation
   const handleStartChat = async () => {
     try {
@@ -73,13 +148,15 @@ const ContactDetailScreen = () => {
       );
       if (conversationId) {
         // Existing open conversation → open it directly
-        (navigation as any).navigate('ChatStack', {
-          screen: 'ChatDetail',
-          params: { conversationId },
-        });
+        navigateAway(() =>
+          (navigation as any).navigate('ChatStack', {
+            screen: 'ChatDetail',
+            params: { conversationId },
+          }),
+        );
       } else {
         // No existing conversation → let the agent start one (message/template)
-        navigation.navigate('InitiateChat', {
+        openContactsScreen('InitiateChat', {
           phoneNumber: contact.phoneNumber,
           contactName: displayName,
         });
@@ -111,7 +188,7 @@ const ContactDetailScreen = () => {
         );
       } else {
         // Navigate to conversation list with filter
-        navigation.navigate('ContactConversations', {
+        openContactsScreen('ContactConversations', {
           contactId: contact.id,
           contactName: displayName,
           conversations,
@@ -144,7 +221,7 @@ const ContactDetailScreen = () => {
         Alert.alert('No Tickets', 'This contact has no tickets.');
       } else {
         // Navigate to ticket history
-        navigation.navigate('ContactTickets', {
+        openContactsScreen('ContactTickets', {
           contactId: contact.id,
           contactName: displayName,
           tickets,
@@ -180,7 +257,7 @@ const ContactDetailScreen = () => {
       if (orders.length === 0) {
         Alert.alert('No Orders', 'This contact has no orders.');
       } else {
-        navigation.navigate('ContactOrders', {
+        openContactsScreen('ContactOrders', {
           contactName: displayName,
           orders,
         });
@@ -213,7 +290,7 @@ const ContactDetailScreen = () => {
       if (appointments.length === 0) {
         Alert.alert('No Appointments', 'This contact has no appointments.');
       } else {
-        navigation.navigate('ContactAppointments', {
+        openContactsScreen('ContactAppointments', {
           contactName: displayName,
           appointments,
         });
@@ -239,7 +316,7 @@ const ContactDetailScreen = () => {
       }
 
       // Navigate to create ticket screen for this customer
-      navigation.navigate('CreateTicket', { customerId: contact.id });
+      openContactsScreen('CreateTicket', { customerId: contact.id });
     } catch (error: any) {
       console.error('Failed to create ticket:', error);
       Alert.alert('Error', 'Failed to create ticket');
@@ -248,7 +325,7 @@ const ContactDetailScreen = () => {
 
   // Send SMS to contact
   const handleSendSms = () => {
-    navigation.navigate('SendSms', {
+    openContactsScreen('SendSms', {
       contactId: contact.id,
       phoneNumber: contact.phoneNumber,
       contactName: displayName,
@@ -270,6 +347,22 @@ const ContactDetailScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      {/* Modal mode has no navigation header, so it carries its own way out.
+          Closing returns to the exact screen the profile was opened from. */}
+      {onClose ? (
+        <View style={styles.modalHeader}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.modalClose}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Icon name="chevron-down" size={22} color="#1890ff" />
+            <Text style={styles.modalCloseText}>Close</Text>
+          </TouchableOpacity>
+          <Text style={styles.modalTitle}>Customer</Text>
+          <View style={styles.modalHeaderSpacer} />
+        </View>
+      ) : null}
       <ScrollView style={styles.container}>
         {/* Header Card */}
         <View style={styles.headerCard}>
@@ -318,9 +411,15 @@ const ContactDetailScreen = () => {
           </View>
         )}
 
-        {/* Action Buttons */}
+        {/*
+         * Actions wrap into a grid instead of one row: four buttons in a single
+         * row were cramped and the labels started colliding. Each tile keeps a
+         * fixed width and simply flows onto the next line.
+         *
+         * Send SMS / Create Ticket stay visible but disabled when their module is
+         * off — hiding them made the screen look like the feature never existed.
+         */}
         <View style={styles.actionsContainer}>
-          {/* Only show Start Chat when reachable via WhatsApp/Telegram or phone is verified */}
           {canChat && (
             <TouchableOpacity
               style={[styles.actionButton, styles.primaryButton]}
@@ -337,39 +436,75 @@ const ContactDetailScreen = () => {
             </TouchableOpacity>
           )}
 
-          {/* Only show Send SMS when the phone number is verified */}
-          {contact.phoneVerified && (
+          {/* WhatsApp call. Shown only for a verified number and when calling
+              is switched on for the workspace — the same gate as the web. */}
+          {canWhatsAppCall && (
             <TouchableOpacity
-              style={[styles.actionButton, styles.secondaryButton]}
-              onPress={handleSendSms}
+              style={[styles.actionButton, styles.whatsappButton]}
+              onPress={() => navigateAway(() => void handleCallCustomer())}
               disabled={isLoading}
             >
               <Icon
-                name="chatbox-ellipses"
+                name="logo-whatsapp"
                 size={20}
                 color="#fff"
                 style={styles.actionButtonIcon}
               />
-              <Text style={styles.actionButtonText}>Send SMS</Text>
+              <Text style={styles.actionButtonText}>Call</Text>
             </TouchableOpacity>
           )}
 
-          {/* Only show Create Ticket when the ticketing module is enabled */}
-          {moduleStore.isLoaded && moduleStore.ticketing && (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.secondaryButton]}
-              onPress={handleCreateTicket}
-              disabled={isLoading}
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              styles.secondaryButton,
+              (!contact.phoneVerified || !smsEnabled) &&
+                styles.actionButtonDisabled,
+            ]}
+            onPress={handleSendSms}
+            disabled={isLoading || !contact.phoneVerified || !smsEnabled}
+          >
+            <Icon
+              name="chatbox-ellipses"
+              size={20}
+              color={contact.phoneVerified && smsEnabled ? '#fff' : '#bfbfbf'}
+              style={styles.actionButtonIcon}
+            />
+            <Text
+              style={[
+                styles.actionButtonText,
+                (!contact.phoneVerified || !smsEnabled) &&
+                  styles.actionButtonTextDisabled,
+              ]}
             >
-              <Icon
-                name="ticket"
-                size={20}
-                color="#fff"
-                style={styles.actionButtonIcon}
-              />
-              <Text style={styles.actionButtonText}>Create Ticket</Text>
-            </TouchableOpacity>
-          )}
+              Send SMS
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              styles.secondaryButton,
+              !ticketingEnabled && styles.actionButtonDisabled,
+            ]}
+            onPress={handleCreateTicket}
+            disabled={isLoading || !ticketingEnabled}
+          >
+            <Icon
+              name="ticket"
+              size={20}
+              color={ticketingEnabled ? '#fff' : '#bfbfbf'}
+              style={styles.actionButtonIcon}
+            />
+            <Text
+              style={[
+                styles.actionButtonText,
+                !ticketingEnabled && styles.actionButtonTextDisabled,
+              ]}
+            >
+              Create Ticket
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* History Buttons */}
@@ -568,6 +703,34 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalClose: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: 80,
+  },
+  modalCloseText: {
+    fontSize: 15,
+    color: '#1890ff',
+    marginLeft: 2,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  modalHeaderSpacer: {
+    width: 80,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f5f9',
@@ -652,11 +815,13 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     padding: 16,
     gap: 12,
   },
   actionButton: {
-    flex: 1,
+    flexBasis: '47%',
+    flexGrow: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -664,11 +829,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 8,
   },
+  actionButtonDisabled: {
+    backgroundColor: '#f0f0f0',
+  },
+  actionButtonTextDisabled: {
+    color: '#bfbfbf',
+  },
   primaryButton: {
     backgroundColor: '#1890ff',
   },
   secondaryButton: {
     backgroundColor: '#52c41a',
+  },
+  whatsappButton: {
+    backgroundColor: '#25D366',
   },
   actionButtonIcon: {
     fontSize: 20,

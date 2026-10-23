@@ -81,6 +81,24 @@ type WebSocketMessage =
     type: 'ws_reconnected';
   }
   | {
+    type: 'whatsapp_call_incoming';
+    projectId?: string;
+    call: any;
+    sdpOffer?: string;
+  }
+  | {
+    type: 'whatsapp_call_update';
+    projectId?: string;
+    call: any;
+    reason?: 'claimed' | 'reoffered';
+  }
+  | {
+    type: 'whatsapp_call_connected';
+    projectId?: string;
+    call: any;
+    sdpAnswer?: string;
+  }
+  | {
     type: 'session_terminated';
     reason: string;
     message: string;
@@ -101,11 +119,92 @@ class WebSocketService {
   }
 
   /**
+   * Close a socket without ever throwing.
+   *
+   * React Native raises `INVALID_STATE_ERR` when `close()` is called on a socket
+   * that is still CONNECTING (or already CLOSED), and that error surfaced as an
+   * unhandled red box. Connecting sockets are deferred instead: closing them as
+   * soon as they open is the only safe way to cancel them.
+   */
+  private closeSocket(socket: WebSocket | null) {
+    if (!socket) return;
+
+    try {
+      // 0 = CONNECTING, 1 = OPEN, 2 = CLOSING, 3 = CLOSED.
+      if (socket.readyState === 0) {
+        // Cancel on open; the deferred handler ignores the subscription.
+        socket.onopen = () => {
+          try {
+            socket.close();
+          } catch {
+            // Already gone.
+          }
+        };
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+        return;
+      }
+
+      if (socket.readyState === 1 || socket.readyState === 2) {
+        socket.close();
+      }
+    } catch {
+      // A socket that refuses to close is already unusable; drop the reference.
+    }
+  }
+
+  /**
+   * Send without ever throwing.
+   *
+   * React Native's WebSocket raises `INVALID_STATE_ERR` from `send()` when the
+   * native socket is not open — including the race where it closes between our
+   * `readyState` check and the call. A dropped subscribe is recoverable; an
+   * uncaught throw inside `onopen` is not.
+   */
+  private safeSend(socket: WebSocket, data: string) {
+    try {
+      // 1 = OPEN
+      if (socket.readyState !== 1) return;
+      socket.send(data);
+    } catch (error) {
+      console.warn('[WS] send skipped:', error);
+    }
+  }
+
+  /** One misbehaving subscriber must not break the socket or its siblings. */
+  private notify(message: WebSocketMessage) {
+    this.messageHandlers.forEach(handler => {
+      try {
+        handler(message);
+      } catch (error) {
+        console.error('[WS] handler failed:', error);
+      }
+    });
+  }
+
+  /**
    * Connect to WebSocket server
    */
   connect(apiBaseUrl: string, authToken: string) {
     this.token = authToken;
     this.destroyed = false;
+
+    // One live connection only. Without this, every screen that re-ran setup
+    // opened another socket and the previous ones were closed mid-handshake,
+    // which is exactly what produced INVALID_STATE_ERR.
+    if (
+      this.ws &&
+      (this.ws.readyState === WebSocket.OPEN ||
+        this.ws.readyState === WebSocket.CONNECTING)
+    ) {
+      return;
+    }
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
 
     // Convert HTTP URL to WebSocket URL
     const wsBaseUrl = apiBaseUrl
@@ -116,13 +215,18 @@ class WebSocketService {
     console.log('🔌 Connecting to WebSocket:', wsUrl);
 
     try {
-      this.ws = new WebSocket(wsUrl);
+      const socket = new WebSocket(wsUrl);
+      this.ws = socket;
 
-      this.ws.onopen = () => {
+      socket.onopen = () => {
         console.log('✅ WebSocket connected');
-        if (this.ws && this.token) {
+        // The socket may already have been replaced by a newer connect().
+        if (this.ws !== socket) return;
+
+        if (socket.readyState === WebSocket.OPEN && this.token) {
           // Subscribe to admin events
-          this.ws.send(
+          this.safeSend(
+            socket,
             JSON.stringify({
               type: 'subscribe_admin',
               payload: { token: this.token, clientType: 'mobile' },
@@ -130,35 +234,37 @@ class WebSocketService {
           );
         }
         // Notify handlers that WebSocket reconnected so they can reload data
-        this.messageHandlers.forEach(handler =>
-          handler({ type: 'ws_reconnected' } as WebSocketMessage),
-        );
+        this.notify({ type: 'ws_reconnected' } as WebSocketMessage);
       };
 
-      this.ws.onmessage = event => {
+      socket.onmessage = event => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
           console.log('📨 WebSocket message:', message.type);
 
           // Notify all handlers
-          this.messageHandlers.forEach(handler => handler(message));
+          this.notify(message);
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error);
         }
       };
 
-      this.ws.onerror = error => {
+      socket.onerror = error => {
         console.error('❌ WebSocket error:', error);
       };
 
-      this.ws.onclose = () => {
+      socket.onclose = () => {
         console.log('🔌 WebSocket closed');
+        // Only the CURRENT socket may clear the reference or schedule a
+        // reconnect: a stale socket closing must not kill a live connection.
+        if (this.ws !== socket) return;
         this.ws = null;
 
         // Auto-reconnect after 5 seconds if not destroyed
-        if (!this.destroyed) {
+        if (!this.destroyed && !this.reconnectTimer) {
           console.log('🔄 Reconnecting in 5 seconds...');
           this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null;
             if (this.token && apiBaseUrl) {
               this.connect(apiBaseUrl, this.token);
             }
@@ -167,6 +273,7 @@ class WebSocketService {
       };
     } catch (error) {
       console.error('Failed to create WebSocket:', error);
+      this.ws = null;
     }
   }
 
@@ -181,10 +288,9 @@ class WebSocketService {
       this.reconnectTimer = null;
     }
 
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
+    const socket = this.ws;
+    this.ws = null;
+    this.closeSocket(socket);
 
     console.log('🔌 WebSocket disconnected');
   }

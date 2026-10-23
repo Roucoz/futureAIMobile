@@ -15,6 +15,7 @@ import {
   Alert,
   AppState,
   AppStateStatus,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
@@ -32,7 +33,56 @@ import {
   Appointment,
 } from '../../services/api/appointments.service';
 import { ordersService, OrderStatus } from '../../services/api/orders.service';
+import { callsService, CallStats } from '../../services/api/calls.service';
+import { ringtone } from '../../services/calls/ringtone';
 import { websocketService } from '../../services/websocket/WebSocketService';
+
+/**
+ * Small red dot that keeps flashing, mirroring the red dots on the web
+ * dashboard and in the sidebar. The dot itself stays 8px; only the halo behind
+ * it expands and fades, so it reads as "something is happening" instead of a
+ * shrinking shape.
+ */
+const PulseDot = () => {
+  const halo = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(halo, {
+        toValue: 1,
+        duration: 1600,
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [halo]);
+
+  return (
+    <View style={styles.pulseDotWrap} pointerEvents="none">
+      <Animated.View
+        style={[
+          styles.pulseDotHalo,
+          {
+            opacity: halo.interpolate({
+              inputRange: [0, 0.7, 1],
+              outputRange: [0.55, 0, 0],
+            }),
+            transform: [
+              {
+                scale: halo.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 3.2],
+                }),
+              },
+            ],
+          },
+        ]}
+      />
+      <View style={styles.pulseDotCore} />
+    </View>
+  );
+};
 
 type DashboardNavigationProp = BottomTabNavigationProp<
   AppTabParamList,
@@ -64,6 +114,11 @@ const DashboardScreen = observer(() => {
     string | null
   >(null);
   const [totalOrders, setTotalOrders] = useState(0);
+  const [callStats, setCallStats] = useState<CallStats | null>(null);
+  // Voice calling is opt-in: no card at all when the workspace has it off.
+  const [callingEnabled, setCallingEnabled] = useState(false);
+  // TEMPORARY: state for the dev-only ringtone test button.
+  const [ringing, setRinging] = useState(false);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -86,6 +141,16 @@ const DashboardScreen = observer(() => {
         }
       } else {
         setTotalOrders(0);
+      }
+
+      // WhatsApp calls (total + live). Cheap counters endpoint.
+      if (moduleStore.whatsapp) {
+        const stats = await callsService.getStats();
+        setCallStats(stats?.counts ?? null);
+        setCallingEnabled(stats?.enabled === true);
+      } else {
+        setCallStats(null);
+        setCallingEnabled(false);
       }
 
       // Load appointments (only if module enabled AND user has permission) - OPTIMIZED
@@ -221,6 +286,8 @@ const DashboardScreen = observer(() => {
         message.type === 'order_updated' ||
         message.type === 'appointment_updated' ||
         message.type === 'agent_status_changed' ||
+        message.type === 'whatsapp_call_incoming' ||
+        message.type === 'whatsapp_call_update' ||
         message.type === 'ws_reconnected'
       ) {
         loadDashboardDataRef.current();
@@ -265,6 +332,13 @@ const DashboardScreen = observer(() => {
   const claimedChatsCount = chatStore.claimedChatsCount;
   const requiresAttentionCount = chatStore.escalationCount;
 
+  // The two "business" cards share a row when both exist (so both are fully
+  // visible on a phone), and each takes the full width when it is the only one.
+  const showOrdersCard =
+    !!moduleStore.orders && authStore.canAccessResource('orders');
+  const showCallsCard = !!moduleStore.whatsapp && callingEnabled;
+  const bothBusinessCards = showOrdersCard && showCallsCard;
+
   const handleAppointmentPress = () => {
     // Navigate to Appointments tab
     navigation.navigate('Appointments');
@@ -301,7 +375,13 @@ const DashboardScreen = observer(() => {
                 </View>
               )}
               <View style={styles.headerTextBlock}>
-                <Text style={styles.headerTitle}>Dashboard</Text>
+                <Text
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={styles.headerTitle}
+                >
+                  {authStore.projectName || 'Dashboard'}
+                </Text>
                 <Text style={styles.headerSubtitle}>
                   Welcome, {authStore.user?.fullName}
                 </Text>
@@ -334,6 +414,63 @@ const DashboardScreen = observer(() => {
                 : 'You will not receive new chats'}
             </Text>
           </View>
+
+          {/*
+           * TEMPORARY dev-only control: plays the incoming-call ringtone on
+           * demand, so the sound can be checked without ringing the workspace.
+           * Delete this block (and the `ringtone` import) once the ring is
+           * confirmed on both platforms.
+           */}
+          {__DEV__ && (
+            <TouchableOpacity
+              style={[styles.card, styles.ringtoneTestCard]}
+              onPress={() => {
+                if (ringtone.isRinging()) {
+                  ringtone.stop();
+                  setRinging(false);
+                  return;
+                }
+                ringtone.start(0.8);
+                setRinging(true);
+
+                // Say out loud what happened: "no audio engine" means the open
+                // binary predates the native audio module, so nothing can play.
+                const mode = ringtone.getMode();
+                if (mode === 'vibration') {
+                  Alert.alert(
+                    'No audio engine in this build',
+                    'The app fell back to vibration, so nothing plays on a simulator. The installed binary does not contain react-native-audio-api — it needs one native rebuild (pod install is already done).',
+                  );
+                } else if (mode === 'idle') {
+                  Alert.alert(
+                    'Ringtone did not start',
+                    'Neither audio nor vibration started. Check the Metro logs for a [Ringtone] warning.',
+                  );
+                }
+
+                // The melody loops; stop it after one pass so a forgotten
+                // button cannot ring forever.
+                setTimeout(() => {
+                  ringtone.stop();
+                  setRinging(false);
+                }, 4600);
+              }}
+            >
+              <View style={styles.ringtoneTestRow}>
+                <Icon
+                  name={ringing ? 'stop-circle' : 'musical-notes'}
+                  size={20}
+                  color="#25D366"
+                />
+                <Text style={styles.ringtoneTestTitle}>
+                  {ringing ? 'Stop ringtone' : 'Test ringtone'}
+                </Text>
+              </View>
+              <Text style={styles.ringtoneTestHint}>
+                Development only — plays the incoming-call sound
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* KPI Cards Grid */}
           <View style={styles.kpiGrid}>
@@ -407,15 +544,68 @@ const DashboardScreen = observer(() => {
             </TouchableOpacity>
 
             {/* Orders (only shown when the Orders module is enabled AND user has permission) */}
-            {moduleStore.orders && authStore.canAccessResource('orders') && (
+            {showOrdersCard && (
               <TouchableOpacity
-                style={[styles.kpiCard, styles.kpiCardOrders]}
+                style={[
+                  styles.kpiCard,
+                  styles.kpiCardOrders,
+                  bothBusinessCards && styles.kpiCardHalf,
+                ]}
                 onPress={() => (navigation as any).navigate('Orders')}
               >
-                <Text style={styles.kpiValue}>{totalOrders}</Text>
+                <Text
+                  style={[
+                    styles.kpiValue,
+                    bothBusinessCards && styles.kpiValueHalf,
+                  ]}
+                >
+                  {totalOrders}
+                </Text>
                 <Text style={styles.kpiLabel}>Active Orders</Text>
                 <Icon
                   name="cart"
+                  size={32}
+                  color="#fff"
+                  style={styles.kpiIcon}
+                />
+              </TouchableOpacity>
+            )}
+
+            {/* WhatsApp calls — only on the WhatsApp plan AND when voice calling
+                is switched on: the total count, with a flashing red dot while a
+                call is ringing or live. */}
+            {showCallsCard && (
+              <TouchableOpacity
+                style={[
+                  styles.kpiCard,
+                  styles.kpiCardCalls,
+                  bothBusinessCards && styles.kpiCardHalf,
+                ]}
+                onPress={() =>
+                  (navigation as any).navigate('ChatStack', {
+                    screen: 'ConversationList',
+                  })
+                }
+              >
+                <View style={styles.kpiHeaderRow}>
+                  <Text
+                    style={[
+                      styles.kpiValue,
+                      bothBusinessCards && styles.kpiValueHalf,
+                    ]}
+                  >
+                    {callStats?.total ?? 0}
+                  </Text>
+                  {(callStats?.active ?? 0) > 0 && <PulseDot />}
+                </View>
+                <Text style={styles.kpiLabel}>WhatsApp Calls</Text>
+                <Text style={styles.kpiSubLabel} numberOfLines={1}>
+                  {`${callStats?.active ?? 0} live · ${
+                    callStats?.today ?? 0
+                  } today`}
+                </Text>
+                <Icon
+                  name="call"
                   size={32}
                   color="#fff"
                   style={styles.kpiIcon}
@@ -638,7 +828,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 4,
@@ -646,6 +836,12 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 14,
     color: '#666',
+  },
+  projectChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
   },
   card: {
     backgroundColor: '#fff',
@@ -733,6 +929,73 @@ const styles = StyleSheet.create({
   kpiCardOrders: {
     backgroundColor: '#eb2f96',
     width: '97%',
+  },
+  kpiCardCalls: {
+    backgroundColor: '#25D366',
+    width: '97%',
+  },
+  /**
+   * When Orders AND Calls are both on screen they sit in one row, so the second
+   * card is not pushed to a row of its own (with 97% width it used to be the
+   * only thing the agent saw while scrolling).
+   */
+  kpiCardHalf: {
+    width: '47%',
+    padding: 16,
+    // Both cards carry a different number of text lines; the taller one sets
+    // the row height so the pair never looks ragged.
+    minHeight: 124,
+  },
+  kpiValueHalf: {
+    fontSize: 28,
+  },
+  kpiHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  kpiSubLabel: {
+    fontSize: 12,
+    color: '#fff',
+    opacity: 0.85,
+    marginTop: 4,
+  },
+  ringtoneTestCard: {
+    paddingVertical: 14,
+  },
+  ringtoneTestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ringtoneTestTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1f1f1f',
+  },
+  ringtoneTestHint: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+  pulseDotWrap: {
+    width: 8,
+    height: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pulseDotHalo: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ff4d4f',
+  },
+  pulseDotCore: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ff4d4f',
   },
   kpiValue: {
     fontSize: 36,

@@ -142,6 +142,14 @@ const ProfileScreen = observer(() => {
                   value={authStore.user?.lastName || 'N/A'}
                 />
 
+                {/* Workspace this account is signed into. Agents who work in
+                    more than one workspace see which one they are in. */}
+                <InfoRow
+                  iconName="business-outline"
+                  label="Project"
+                  value={authStore.projectName || 'N/A'}
+                />
+
                 <InfoRow
                   iconName="business"
                   label="Project ID"
@@ -185,8 +193,8 @@ const ProfileScreen = observer(() => {
                 <View style={styles.prefText}>
                   <Text style={styles.prefTitle}>New customer chat alerts</Text>
                   <Text style={styles.prefHint}>
-                    Get notified on this device when a customer starts a new chat
-                    on your website — even when the AI answers it.
+                    Get notified on this device when a customer starts a new
+                    chat on your website — even when the AI answers it.
                   </Text>
                 </View>
                 <Switch

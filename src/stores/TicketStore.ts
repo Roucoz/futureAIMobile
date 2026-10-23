@@ -27,6 +27,8 @@ export const TicketModel = types.model('Ticket', {
     assigneeName: types.maybeNull(types.string),
     // Customer (simplified)
     customerName: types.maybeNull(types.string),
+    // Needed to open the customer profile from the ticket list.
+    customerPhone: types.maybeNull(types.string),
 });
 
 // Ticket status model (from custom statuses API)
@@ -169,6 +171,7 @@ export const TicketStore = types
                         closedAt: t.closedAt,
                         assigneeName: t.assignedToMember?.displayName || null,
                         customerName: t.customer?.name || null,
+                        customerPhone: t.customer?.phoneNumber || null,
                     })),
                 );
 
@@ -227,6 +230,7 @@ export const TicketStore = types
                     closedAt: t.closedAt,
                     assigneeName: t.assignedToMember?.displayName || null,
                     customerName: t.customer?.name || null,
+                    customerPhone: t.customer?.phoneNumber || null,
                 }));
 
                 self.tickets.push(...(cast(newTickets) as any));

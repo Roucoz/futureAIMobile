@@ -30,11 +30,35 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useChat, useAuth, useModule } from '../../stores';
 import { resolveImageUrl } from '../../utils/imageUrl';
 import { getConversationChannel } from '../../utils/channel';
+import { useContactProfile } from '../../hooks/useContactProfile';
+import { leadService } from '../../services/api/lead.service';
 import { ChatStackParamList } from '../../navigation/types';
 import VoicePlayer from '../../components/audio/VoicePlayer';
 import ScreenBackground from '../../components/common/ScreenBackground';
 
 type ChatDetailRouteProp = RouteProp<ChatStackParamList, 'ChatDetail'>;
+
+/**
+ * Visitor avatar per channel.
+ *
+ * A chat used to show a generic person icon, which told the agent nothing and
+ * looked like a photo that failed to load. The channel's own emoji answers the
+ * question an agent actually asks ("where does this person write from?") and
+ * doubles as the button that opens their customer file.
+ */
+const CHANNEL_AVATARS: Record<string, { emoji: string; bg: string }> = {
+  WHATSAPP: { emoji: '💬', bg: '#25D366' },
+  WIDGET: { emoji: '🌐', bg: '#1890ff' },
+  TELEGRAM: { emoji: '✈️', bg: '#0088cc' },
+  INSTAGRAM: { emoji: '📸', bg: '#E4405F' },
+  FACEBOOK_MESSENGER: { emoji: '💬', bg: '#9146FF' },
+  SMS: { emoji: '✉️', bg: '#52c41a' },
+  EMAIL: { emoji: '📧', bg: '#8c8c8c' },
+};
+
+const avatarForChannel = (channel?: string | null) =>
+  CHANNEL_AVATARS[(channel || 'WIDGET').toUpperCase()] ??
+  CHANNEL_AVATARS.WIDGET;
 
 /**
  * Parses **bold** markers in text and returns a single <Text> with nested children.
@@ -66,6 +90,7 @@ const ChatDetailScreen = observer(() => {
   const route = useRoute<ChatDetailRouteProp>();
   const navigation = useNavigation();
   const chatStore = useChat();
+  const { openContact, contactProfileModal } = useContactProfile();
   const authStore = useAuth();
   const moduleStore = useModule();
   const { conversationId } = route.params;
@@ -82,6 +107,42 @@ const ChatDetailScreen = observer(() => {
   const leftScreenRef = useRef(false);
 
   const messages = chatStore.conversationDetail?.messages || [];
+
+  // Channel drives the visitor avatar and the message-sending rules below.
+  const activeConversation =
+    chatStore.conversationDetail ?? chatStore.selectedConversation;
+  const conversationChannel = activeConversation
+    ? getConversationChannel(
+        activeConversation.channel,
+        activeConversation.domain,
+      )
+    : 'WIDGET';
+
+  // AI on/off for this conversation. "Human in control" is the same state the
+  // web dashboard uses to pause the assistant.
+  const conversationMode = activeConversation?.mode ?? 'AI_ACTIVE';
+  const aiIsOn = conversationMode === 'AI_ACTIVE';
+  // Closed conversations are read-only in the app (claim/close stay available).
+  const isClosedConversation = activeConversation?.status === 'CLOSED';
+  const [aiToggling, setAiToggling] = useState(false);
+
+  const handleToggleAi = async () => {
+    if (aiToggling) return;
+    const conversationId = chatStore.conversationDetail?.id;
+    if (!conversationId) return;
+
+    setAiToggling(true);
+    try {
+      await chatStore.updateConversationMode(
+        conversationId,
+        aiIsOn ? 'HUMAN_TAKEOVER' : 'AI_ACTIVE',
+      );
+    } catch {
+      Alert.alert('Error', 'Failed to change the AI mode');
+    } finally {
+      setAiToggling(false);
+    }
+  };
 
   const scrollToBottom = useCallback(
     (animated: boolean = true) => {
@@ -236,12 +297,22 @@ const ChatDetailScreen = observer(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, isAtBottom, scrollToBottom]);
 
+  /**
+   * Everything an agent can do with the conversation they are reading. The list
+   * is built per chat: module- and permission-gated actions only appear when they
+   * can actually be used, and "Claim chat" only when nobody owns it yet.
+   */
   const showActionSheet = async () => {
-    const conversation = chatStore.selectedConversation;
+    const conversation =
+      chatStore.conversationDetail ?? chatStore.selectedConversation;
     if (!conversation) return;
 
-    // Ensure the ticketing module status is loaded before gating this action
+    // Module flags drive which actions exist at all
     await moduleStore.ensureLoaded();
+
+    const isOwner =
+      !!conversation.assignedToMemberId &&
+      conversation.assignedToMemberId === authStore.memberId;
 
     // Check permissions
     const hasClosePermission = authStore.permissions.some(
@@ -250,49 +321,127 @@ const ChatDetailScreen = observer(() => {
     const hasTicketPermission = authStore.permissions.some(
       p => p.resource === 'tickets' && p.actions.includes('create'),
     );
+    const hasLeadPermission = authStore.permissions.some(
+      p => p.resource === 'leads' && p.actions.includes('create'),
+    );
 
-    // Only offer Create Ticket when the ticketing module is enabled
-    const ticketEnabled = moduleStore.isLoaded ? moduleStore.ticketing : false;
+    const ticketEnabled = moduleStore.isLoaded && moduleStore.ticketing;
+    const leadEnabled = moduleStore.isLoaded && moduleStore.leads;
 
-    const options: string[] = [];
-    if (ticketEnabled && hasTicketPermission) options.push('Create Ticket');
-    if (hasClosePermission) options.push('Close Chat');
-    options.push('Cancel');
+    // Menu, in the order an agent is likely to need it.
+    const actions: Array<{ label: string; run: () => void; danger?: boolean }> =
+      [
+        {
+          label: 'Open customer profile',
+          run: () => void handleOpenCustomer(),
+        },
+      ];
+
+    if (leadEnabled && hasLeadPermission) {
+      actions.push({
+        label: 'Create Lead',
+        run: () => void handleCreateLead(),
+      });
+    }
+    if (ticketEnabled && hasTicketPermission) {
+      actions.push({
+        label: 'Create Ticket',
+        run: () => void handleCreateTicket(),
+      });
+    }
+    if (!isOwner && conversation.status !== 'CLOSED') {
+      actions.push({ label: 'Claim Chat', run: () => void handleClaimChat() });
+    }
+    // Nothing to close on a closed conversation.
+    if (hasClosePermission && conversation.status !== 'CLOSED') {
+      actions.push({
+        label: 'Close Chat',
+        run: () => handleCloseChat(),
+        danger: true,
+      });
+    }
+
+    const options = [...actions.map(action => action.label), 'Cancel'];
+    const cancelIndex = options.length - 1;
+    const destructiveIndex = actions.findIndex(action => action.danger);
 
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
           options,
-          cancelButtonIndex: options.length - 1,
-          destructiveButtonIndex: hasClosePermission
-            ? options.indexOf('Close Chat')
-            : undefined,
+          cancelButtonIndex: cancelIndex,
+          destructiveButtonIndex:
+            destructiveIndex >= 0 ? destructiveIndex : undefined,
         },
         buttonIndex => {
-          if (options[buttonIndex] === 'Create Ticket') {
-            handleCreateTicket();
-          } else if (options[buttonIndex] === 'Close Chat') {
-            handleCloseChat();
-          }
+          const action = actions[buttonIndex];
+          if (action && buttonIndex !== cancelIndex) action.run();
         },
       );
     } else {
-      // Android: Show alert with options
-      Alert.alert('Actions', 'Choose an action', [
-        ...(ticketEnabled && hasTicketPermission
-          ? [{ text: 'Create Ticket', onPress: handleCreateTicket }]
-          : []),
-        ...(hasClosePermission
-          ? [
-              {
-                text: 'Close Chat',
-                onPress: handleCloseChat,
-                style: 'destructive' as const,
-              },
-            ]
-          : []),
-        { text: 'Cancel', style: 'cancel' as const },
-      ]);
+      // Android: Alert supports at most three buttons, so the same list is shown
+      // as a scrollable sheet-like Alert is not available — fall back to a menu.
+      Alert.alert(
+        'Chat actions',
+        'Choose an action',
+        [
+          ...actions.map(action => ({
+            text: action.label,
+            onPress: action.run,
+            style: action.danger ? ('destructive' as const) : undefined,
+          })),
+          { text: 'Cancel', style: 'cancel' as const },
+        ],
+        { cancelable: true },
+      );
+    }
+  };
+
+  /** Opens the customer file for this conversation (website visitors have none). */
+  const handleOpenCustomer = async () => {
+    const conversation =
+      chatStore.conversationDetail ?? chatStore.selectedConversation;
+    if (!conversation) return;
+    // `displayTitle` only exists on the list preview; the detail model carries
+    // the raw visitor id.
+    const displayName =
+      chatStore.selectedConversation?.displayTitle ?? conversation.visitorId;
+    await openContact(conversation.visitorId, displayName);
+  };
+
+  /** Turns the current conversation into a sales lead. */
+  const handleCreateLead = async () => {
+    const conversation = chatStore.conversationDetail;
+    if (!conversation) return;
+
+    try {
+      await leadService.createLead({
+        conversationId: conversation.id,
+        summary: chatStore.selectedConversation?.displayTitle ?? null,
+      });
+      Alert.alert(
+        'Lead created',
+        'This chat now appears in the sales pipeline.',
+      );
+    } catch (error: any) {
+      console.error('Failed to create lead:', error);
+      Alert.alert(
+        'Error',
+        error?.response?.data?.error || 'Failed to create the lead',
+      );
+    }
+  };
+
+  /** Takes ownership of an unassigned conversation. */
+  const handleClaimChat = async () => {
+    const conversationId = chatStore.conversationDetail?.id;
+    if (!conversationId) return;
+
+    try {
+      await chatStore.claimConversation(conversationId);
+      Alert.alert('Chat claimed', 'This conversation is now assigned to you.');
+    } catch {
+      Alert.alert('Error', 'Failed to claim the conversation');
     }
   };
 
@@ -403,7 +552,7 @@ const ChatDetailScreen = observer(() => {
     const hasAudio = item.attachmentType === 'audio' && item.attachmentUrl;
     const hasImage = item.attachmentType === 'image' && item.attachmentUrl;
     const senderAvatar = item.senderAvatarUrl;
-
+    const visitorAvatar = avatarForChannel(conversationChannel);
     return (
       <View
         style={[
@@ -411,11 +560,21 @@ const ChatDetailScreen = observer(() => {
           isRight && styles.agentMessageContainer,
         ]}
       >
-        {/* Visitor Avatar (left side) */}
+        {/* Visitor avatar: the emoji of the channel they wrote from, so a chat
+            is recognisable at a glance. Tapping it opens their customer file. */}
         {!isRight && (
-          <View style={[styles.avatarSmall, styles.avatarSmallLeft]}>
-            <Icon name="person" size={16} color="#fff" />
-          </View>
+          <TouchableOpacity
+            style={[
+              styles.avatarSmall,
+              styles.avatarSmallLeft,
+              { backgroundColor: visitorAvatar.bg },
+            ]}
+            onPress={() => void handleOpenCustomer()}
+            accessibilityLabel="Open customer profile"
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <Text style={styles.avatarEmoji}>{visitorAvatar.emoji}</Text>
+          </TouchableOpacity>
         )}
 
         <View style={[styles.messageBubble, isRight && styles.agentBubble]}>
@@ -456,9 +615,11 @@ const ChatDetailScreen = observer(() => {
               style={styles.avatarSmall}
             />
           ) : isBot ? (
-            <View style={[styles.avatarSmall, styles.avatarSmallBot]}>
-              <Icon name="flash" size={14} color="#fff" />
-            </View>
+            <Image
+              source={require('../../assets/images/sparkles.png')}
+              style={[styles.avatarSmall, styles.avatarSmallAi]}
+              resizeMode="contain"
+            />
           ) : (
             <View style={[styles.avatarSmall, styles.avatarSmallAgent]}>
               <Text style={styles.avatarSmallText}>
@@ -506,32 +667,76 @@ const ChatDetailScreen = observer(() => {
           </TouchableOpacity>
         )}
 
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Type a message..."
-            value={messageText}
-            onChangeText={setMessageText}
-            multiline
-            maxLength={1000}
-            editable={!sending}
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              (!messageText.trim() || sending) && styles.sendButtonDisabled,
-            ]}
-            onPress={handleSend}
-            disabled={!messageText.trim() || sending}
-          >
-            {sending ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Icon name="send" size={20} color="#fff" />
-            )}
-          </TouchableOpacity>
-        </View>
+        {isClosedConversation ? (
+          // A closed chat is read-only: show why, instead of an input that the
+          // server would reject anyway.
+          <View style={styles.closedNotice}>
+            <Icon name="lock-closed-outline" size={16} color="#8c8c8c" />
+            <Text style={styles.closedNoticeText}>
+              This conversation is closed. Reopen it from the web dashboard to
+              reply.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.inputContainer}>
+            {/* AI switch: same meaning as the web "AI Active / Human" toggle —
+                pausing the assistant hands the chat to a person. */}
+            <TouchableOpacity
+              style={[
+                styles.aiButton,
+                aiIsOn ? styles.aiButtonOn : styles.aiButtonOff,
+              ]}
+              onPress={() => void handleToggleAi()}
+              disabled={aiToggling || chatStore.isUpdatingMode}
+              accessibilityLabel={
+                aiIsOn
+                  ? 'Pause the AI for this chat'
+                  : 'Let the AI answer again'
+              }
+            >
+              {aiToggling || chatStore.isUpdatingMode ? (
+                <ActivityIndicator
+                  size="small"
+                  color={aiIsOn ? '#fff' : '#8c8c8c'}
+                />
+              ) : (
+                <Icon
+                  name={aiIsOn ? 'sparkles' : 'pause'}
+                  size={18}
+                  color={aiIsOn ? '#fff' : '#8c8c8c'}
+                />
+              )}
+            </TouchableOpacity>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Type a message..."
+              value={messageText}
+              onChangeText={setMessageText}
+              multiline
+              maxLength={1000}
+              editable={!sending}
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (!messageText.trim() || sending) && styles.sendButtonDisabled,
+              ]}
+              onPress={handleSend}
+              disabled={!messageText.trim() || sending}
+            >
+              {sending ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Icon name="send" size={20} color="#fff" />
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
+
+      {/* Customer profile opened from the chat; closing it returns to the chat. */}
+      {contactProfileModal}
     </ScreenBackground>
   );
 });
@@ -592,13 +797,19 @@ const styles = StyleSheet.create({
   avatarSmallLeft: {
     marginRight: 8,
   },
+  avatarEmoji: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
   avatarSmallAgent: {
     backgroundColor: '#1890ff',
     marginRight: 0,
     marginLeft: 8,
   },
-  avatarSmallBot: {
-    backgroundColor: '#722ed1',
+  avatarSmallAi: {
+    // The AI mark is a bundled bitmap with a white background, so it is clipped
+    // to the same circle as the other avatars.
+    backgroundColor: '#ffffff',
     marginRight: 0,
     marginLeft: 8,
   },
@@ -653,6 +864,36 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     alignItems: 'flex-end',
+  },
+  aiButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  aiButtonOn: {
+    backgroundColor: '#722ed1',
+  },
+  aiButtonOff: {
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#d9d9d9',
+  },
+  closedNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 14,
+    backgroundColor: '#fafafa',
+    borderTopWidth: 1,
+    borderTopColor: '#eeeeee',
+  },
+  closedNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#8c8c8c',
   },
   input: {
     flex: 1,

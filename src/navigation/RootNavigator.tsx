@@ -11,6 +11,8 @@ import { ActivityIndicator, View } from 'react-native';
 import { useAuth, useChat, useAppointment, useModule } from '../stores';
 import { notificationService } from '../services/notifications/NotificationService';
 import { websocketService } from '../services/websocket/WebSocketService';
+import { callManager } from '../services/calls/callManager';
+import CallOverlay from '../screens/calls/CallOverlay';
 import { RootStackParamList } from './types';
 import { env } from '../config/env';
 
@@ -40,6 +42,33 @@ const RootNavigator = observer(() => {
       moduleStore.fetchModuleStatuses();
     }
   }, [authStore.isAuthenticated, authStore.token, moduleStore]);
+
+  // WhatsApp calling: incoming / claimed / ended events from the dashboard socket.
+  // The overlay is a dumb view, so wiring it here keeps it available on every
+  // screen without touching the navigators.
+  useEffect(() => {
+    callManager.setMember(authStore.memberId ?? null);
+    if (!authStore.isAuthenticated || !authStore.token) return;
+
+    void callManager.recoverPendingCall();
+
+    const unsubscribe = websocketService.subscribe(message => {
+      if (
+        message.type === 'whatsapp_call_incoming' ||
+        message.type === 'whatsapp_call_connected' ||
+        message.type === 'whatsapp_call_update'
+      ) {
+        callManager.handleRealtime(message);
+        return;
+      }
+      // A reconnect can hide a ringing call: ask the server what is still open.
+      if (message.type === 'ws_reconnected') {
+        void callManager.recoverPendingCall();
+      }
+    });
+
+    return unsubscribe;
+  }, [authStore.isAuthenticated, authStore.token, authStore.memberId]);
 
   // Listen for session_terminated WebSocket events (forced logout)
   useEffect(() => {
@@ -107,6 +136,9 @@ const RootNavigator = observer(() => {
           Mounted here so it covers every screen; it renders nothing unless the
           account is restricted. */}
       <AccountBlockedModal />
+
+      {/* Incoming / active WhatsApp call. Renders nothing unless a call is open. */}
+      <CallOverlay />
     </NavigationContainer>
   );
 });

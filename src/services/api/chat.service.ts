@@ -91,6 +91,18 @@ class ChatService {
   }
 
   /**
+   * Per-filter conversation counts.
+   *
+   * The list endpoint only returns ONE status at a time, so the other tabs had
+   * nothing to show (they always read 0). These counters come from the same
+   * endpoint the web inbox rail uses.
+   */
+  async getInboxCounts(): Promise<Record<string, number>> {
+    const response = await apiClient.get('/v1/admin/chats/counts');
+    return response.data?.counts || {};
+  }
+
+  /**
    * Get conversation detail with all messages
    */
   async getConversationById(chatId: string): Promise<ConversationDetail> {

@@ -3,7 +3,7 @@
  * Shows all customer conversations with filter tabs
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   FlatList,
@@ -14,28 +14,65 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { observer } from 'mobx-react-lite';
-import { useNavigation } from '@react-navigation/native';
-import { useChat } from '../../stores';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useAuth, useChat } from '../../stores';
 import ConversationCard from '../../components/chat/ConversationCard';
 import ScreenBackground from '../../components/common/ScreenBackground';
 import BillingBanner from '../../components/common/BillingBanner';
+import { websocketService } from '../../services/websocket/WebSocketService';
 
 const ConversationListScreen = observer(() => {
   const navigation = useNavigation();
   const chatStore = useChat();
+  const authStore = useAuth();
   const [activeTab, setActiveTab] = useState<'OPEN' | 'CLOSED' | 'CLAIMED'>(
     'OPEN',
   );
 
+  /** Loads the list for the selected tab plus the counters for all tabs. */
+  const loadTab = useCallback(
+    (tab: 'OPEN' | 'CLOSED' | 'CLAIMED' = activeTab, withCounts = true) => {
+      // CLAIMED is a slice of the open inbox, not a status of its own.
+      const statusToLoad = tab === 'CLOSED' ? 'CLOSED' : 'OPEN';
+      chatStore.loadConversations(statusToLoad);
+      if (withCounts) void chatStore.loadInboxCounts();
+    },
+    [activeTab, chatStore],
+  );
+
   useEffect(() => {
-    // Load conversations based on tab (CLAIMED uses OPEN status)
-    const statusToLoad = activeTab === 'CLAIMED' ? 'OPEN' : activeTab;
-    chatStore.loadConversations(statusToLoad);
-  }, [activeTab]);
+    loadTab(activeTab);
+  }, [activeTab, loadTab]);
+
+  // The closed inbox has no socket event of its own, so refresh on every visit;
+  // this also catches anything that changed while the tab was in the background.
+  useFocusEffect(
+    useCallback(() => {
+      loadTab(activeTab);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab]),
+  );
+
+  // Real-time: a new message, a claim or a close changes one of the counters.
+  // Reloading the OPEN list keeps the visible tab live; the counters keep the
+  // other two honest.
+  useEffect(() => {
+    const unsubscribe = websocketService.subscribe(message => {
+      if (
+        message.type === 'conversation_updated' ||
+        message.type === 'conversation_closed' ||
+        message.type === 'conversation_assignment_changed' ||
+        message.type === 'ws_reconnected'
+      ) {
+        chatStore.loadConversations(activeTab === 'CLOSED' ? 'CLOSED' : 'OPEN');
+        void chatStore.loadInboxCounts();
+      }
+    });
+    return unsubscribe;
+  }, [chatStore, activeTab]);
 
   const handleRefresh = () => {
-    const statusToLoad = activeTab === 'CLAIMED' ? 'OPEN' : activeTab;
-    chatStore.loadConversations(statusToLoad);
+    loadTab(activeTab);
   };
 
   const handleConversationPress = (conversationId: string) => {
@@ -47,22 +84,28 @@ const ConversationListScreen = observer(() => {
     setActiveTab(tab);
   };
 
-  // Get counts for all tabs
-  const openCount = chatStore.conversations.filter(
-    c => c.status === 'OPEN',
-  ).length;
-  const closedCount = chatStore.conversations.filter(
-    c => c.status === 'CLOSED',
-  ).length;
-  const claimedCount = chatStore.conversations.filter(
-    c => c.assignedToMemberId !== null && c.status === 'OPEN',
-  ).length;
+  // Server counters first: the loaded list only ever holds one status, so
+  // counting locally would show 0 on both inactive tabs. Falling back to the
+  // local numbers covers the moment before the first counts response arrives.
+  const serverCounts = chatStore.inboxCounts;
+  const openCount =
+    serverCounts?.open ??
+    chatStore.conversations.filter(c => c.status === 'OPEN').length;
+  const closedCount =
+    serverCounts?.closed ??
+    chatStore.conversations.filter(c => c.status === 'CLOSED').length;
+  const claimedCount =
+    serverCounts?.mine ??
+    chatStore.conversations.filter(
+      c => c.status === 'OPEN' && c.assignedToMemberId === authStore.memberId,
+    ).length;
 
   // Filter conversations based on active tab
   const filteredConversations =
     activeTab === 'CLAIMED'
       ? chatStore.sortedConversations.filter(
-          c => c.assignedToMemberId !== null && c.status === 'OPEN',
+          c =>
+            c.status === 'OPEN' && c.assignedToMemberId === authStore.memberId,
         )
       : chatStore.sortedConversations;
 
