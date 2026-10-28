@@ -2,8 +2,11 @@
 # One-command iOS release:
 #   1. point the app at the PRODUCTION API
 #   2. bump the build number (required by App Store Connect)
-#   3. verify signing against the installed App Store profile
-#   4. archive + export the signed App Store IPA
+#   3. archive with the local App Store profile (command-line overrides only)
+#   4. export the signed App Store IPA
+#
+# NOTE: the Xcode project itself stays on *automatic* signing because Xcode Cloud
+# requires it. Manual signing is applied only to this local build via overrides.
 #
 # Usage:  npm run bumpAndRelease
 set -euo pipefail
@@ -21,8 +24,7 @@ echo "▶ 1/4 · Setting API target to prod"
 echo "▶ 2/4 · Bumping iOS build number"
 (cd "$IOS" && bundle exec ruby "$ROOT/scripts/bump-build-number.rb")
 
-echo "▶ 3/4 · Verifying signing (App Store profile)"
-(cd "$IOS" && bundle exec ruby "$ROOT/scripts/configure-ios-signing.rb")
+echo "▶ 3/4 · Using local App Store profile (project stays on automatic signing for Xcode Cloud)"
 
 echo "▶ 4/4 · Archiving (this takes a few minutes)…"
 rm -rf "$ARCHIVE"
@@ -32,6 +34,9 @@ if ! (cd "$IOS" && xcodebuild \
       -configuration Release \
       -destination 'generic/platform=iOS' \
       -archivePath "$ARCHIVE" \
+      CODE_SIGN_STYLE=Manual \
+      PROVISIONING_PROFILE_SPECIFIER="Tuxon App Store" \
+      CODE_SIGN_IDENTITY="Apple Distribution" \
       archive > "$LOG_DIR/archive.log" 2>&1); then
   echo "✖ Archive failed — see $LOG_DIR/archive.log"
   grep -nE "error:|ARCHIVE FAILED" "$LOG_DIR/archive.log" | tail -20 || true
