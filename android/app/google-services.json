@@ -1,21 +1,40 @@
 {
   "project_info": {
-    "project_number": "536108047692",
-    "project_id": "futureai-fa39c",
-    "storage_bucket": "futureai-fa39c.firebasestorage.app"
+    "project_number": "126071953867",
+    "project_id": "tuxon-ai-mobile",
+    "storage_bucket": "tuxon-ai-mobile.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:536108047692:android:886ee332a304ecbf5d83e9",
+        "mobilesdk_app_id": "1:126071953867:android:920e84f3541b545ff73e4e",
         "android_client_info": {
-          "package_name": "com.futureaimobile"
+          "package_name": "com.tuxon.app"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDBplVXAF9f8A8rHacFpIFA4rFjz2RaoM0"
+          "current_key": "AIzaSyAK0MRv7zdWoDrWGWc7sbAgHxHjcd9ZCV4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:126071953867:android:4196f37bc6f6b8f7f73e4e",
+        "android_client_info": {
+          "package_name": "com.tuxon.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAK0MRv7zdWoDrWGWc7sbAgHxHjcd9ZCV4"
         }
       ],
       "services": {

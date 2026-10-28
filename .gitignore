@@ -36,6 +36,16 @@ local.properties
 keystore.properties
 .kotlin/
 
+# Firebase SERVER credentials - never commit these.
+# (android/app/google-services.json and ios/.../GoogleService-Info*.plist are
+#  CLIENT config, not secrets - they are intentionally committed.)
+*-firebase-adminsdk-*.json
+service-account*.json
+*.p8
+
+# Archived release binaries (~52MB each) - keep them out of git history.
+release-assets/aab/
+
 # node.js
 #
 node_modules/

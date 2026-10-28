@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
-	<string>AIzaSyDGXAUaoyg4YEgvDnvkeYtIU6Qzmaxfdic</string>
+	<string>AIzaSyC80AP6AoifH9gGsmweBNbV19NeamtKM8U</string>
 	<key>GCM_SENDER_ID</key>
-	<string>536108047692</string>
+	<string>126071953867</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>org.reactjs.native.example.FutureAIMobile</string>
+	<string>com.tuxon.app</string>
 	<key>PROJECT_ID</key>
-	<string>futureai-fa39c</string>
+	<string>tuxon-ai-mobile</string>
 	<key>STORAGE_BUCKET</key>
-	<string>futureai-fa39c.firebasestorage.app</string>
+	<string>tuxon-ai-mobile.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:536108047692:ios:4dc7598f9e7fef585d83e9</string>
+	<string>1:126071953867:ios:f1ba83aacd3c260bf73e4e</string>
 </dict>
 </plist>

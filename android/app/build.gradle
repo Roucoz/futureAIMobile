@@ -167,7 +167,10 @@ dependencies {
     // Firebase BoM (Bill of Materials) - manages versions for all Firebase SDKs
     implementation platform("com.google.firebase:firebase-bom:34.14.0")
 
-    // Firebase SDKs (versions managed by BoM above)
-    implementation "com.google.firebase:firebase-analytics"
+    // Firebase SDKs (versions managed by BoM above).
+    // firebase-analytics is intentionally NOT included: nothing in the app uses it,
+    // and it pulls in play-services-measurement, which injects the
+    // com.google.android.gms.permission.AD_ID permission (forces an Advertising ID
+    // declaration in Play Console). Re-add it only if you actually log Analytics events.
     implementation "com.google.firebase:firebase-messaging"
 }
