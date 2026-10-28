@@ -12,4 +12,4 @@
  */
 export type AppTarget = 'prod' | 'dev' | 'local';
 
-export const APP_TARGET: AppTarget = 'dev';
+export const APP_TARGET: AppTarget = 'prod';
